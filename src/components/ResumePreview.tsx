@@ -9,6 +9,7 @@ interface ResumePreviewProps {
   fontStyle?: string;  // 'sans' | 'serif' | 'mono' | 'editorial' | 'modern-grotesk'
   fontSize?: string;   // 'small' | 'medium' | 'large'
   fontColor?: string;  // hex color
+  enforceTwoPages?: boolean;
 }
 
 export default function ResumePreview({ 
@@ -17,7 +18,8 @@ export default function ResumePreview({
   themeColor = 'indigo',
   fontStyle = 'sans',
   fontSize = 'medium',
-  fontColor = '#1e293b'
+  fontColor = '#1e293b',
+  enforceTwoPages = true
 }: ResumePreviewProps) {
   const { personalInformation: info, professionalSummary: summary, skills, experience, projects, education } = data;
 
@@ -177,9 +179,23 @@ export default function ResumePreview({
     );
   };
 
+  // Render a smart Page 2 transition marker for screen and print
+  const renderPageBreakIndicator = (sectionLabel: string = "PAGE 2 BOUNDARY") => {
+    if (!enforceTwoPages) return null;
+    return (
+      <div className="no-print border-t-2 border-dashed border-rose-400/40 my-6 relative text-center select-none page-break-after-section page-break-force col-span-full w-full">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-3 py-0.5 rounded-full border border-rose-300 text-[10px] font-mono font-bold text-rose-500 shadow-sm z-20">
+          ✂️ SMART TWO-PAGE ENFORCER: {sectionLabel} ✂️
+        </span>
+      </div>
+    );
+  };
+
   // --- TEMPLATE 1: Modern Minimal ---
   const renderModern = () => (
-    <div className="p-8 font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left">
+    <div className={`font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       {/* Header */}
       <div className="border-b-2 border-slate-900 pb-5 mb-6">
         <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900 mb-2 uppercase">
@@ -216,7 +232,7 @@ export default function ResumePreview({
               </h3>
               <div className="space-y-4">
                 {experience.map((exp, idx) => (
-                  <div key={idx} className="text-xs">
+                  <div key={idx} className="text-xs experience-item">
                     <div className="flex justify-between items-start font-semibold text-slate-900">
                       <span>{exp.designation} <span className={`${activeTheme.primaryText} font-medium`}>@ {exp.company}</span></span>
                       <span className="text-[10px] font-mono text-slate-500 shrink-0">{exp.startDate} - {exp.endDate}</span>
@@ -236,13 +252,14 @@ export default function ResumePreview({
 
           {/* Projects */}
           {projects.length > 0 && (
-            <div>
+            <div className={enforceTwoPages ? "print:break-before-page pt-4" : ""}>
+              {renderPageBreakIndicator("PROJECTS & INITIATIVES")}
               <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-1 mb-3">
                 Key Initiatives & Projects
               </h3>
               <div className="space-y-3">
                 {projects.map((proj, idx) => (
-                  <div key={idx} className="text-xs">
+                  <div key={idx} className="text-xs project-item">
                     <div className="flex justify-between items-baseline font-semibold text-slate-900">
                       <span>{proj.title}</span>
                       <div className="flex gap-2 text-[10px] font-mono">
@@ -280,13 +297,13 @@ export default function ResumePreview({
 
           {/* Education */}
           {education.length > 0 && (
-            <div>
+            <div className={enforceTwoPages ? "print:break-before-page pt-3" : ""}>
               <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-1 mb-3">
                 Education
               </h3>
               <div className="space-y-3">
                 {education.map((edu, idx) => (
-                  <div key={idx} className="text-[11px]">
+                  <div key={idx} className="text-[11px] education-item">
                     <div className="font-semibold text-slate-900">{edu.degree}</div>
                     <div className="text-slate-600">{edu.college}</div>
                     <div className="text-[10px] text-slate-500 font-mono mt-0.5">{edu.year} | GPA: {edu.cgpa}</div>
@@ -314,7 +331,9 @@ export default function ResumePreview({
 
   // --- TEMPLATE 2: Professional Executive ---
   const renderProfessional = () => (
-    <div className="p-8 font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left">
+    <div className={`font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       {/* Name and Header block with sidebar accent */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div className="md:col-span-3">
@@ -366,7 +385,7 @@ export default function ResumePreview({
           </h3>
           <div className="space-y-5">
             {experience.map((exp, idx) => (
-              <div key={idx} className="text-xs">
+              <div key={idx} className="text-xs experience-item">
                 <div className={`flex justify-between items-baseline font-bold ${activeTheme.heavyText} text-[13px]`}>
                   <span>{exp.designation} <span className="text-slate-500 font-normal">| {exp.company}</span></span>
                   <span className="text-[10px] font-mono text-slate-500">{exp.startDate} - {exp.endDate}</span>
@@ -383,13 +402,14 @@ export default function ResumePreview({
         </div>
 
         {/* Education & Qualifications */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${enforceTwoPages ? "print:break-before-page pt-4" : ""}`}>
+          {renderPageBreakIndicator("ACADEMICS & CERTIFICATIONS")}
           <div>
             <h3 className={`font-display text-xs font-bold uppercase tracking-wider ${activeTheme.heavyText} border-b ${activeTheme.mediumBorder} pb-1 mb-3`}>
               Academic Background
             </h3>
             {education.map((edu, idx) => (
-              <div key={idx} className="text-[11px] mb-2">
+              <div key={idx} className="text-[11px] mb-2 education-item">
                 <div className="font-bold text-slate-800">{edu.degree}</div>
                 <div className="text-slate-600">{edu.college} ({edu.year})</div>
                 <div className={`text-[10px] ${activeTheme.primaryText} font-semibold mt-0.5`}>GPA: {edu.cgpa}</div>
@@ -414,7 +434,9 @@ export default function ResumePreview({
 
   // --- TEMPLATE 3: Classic Minimalist (Symmetrical centered) ---
   const renderMinimal = () => (
-    <div className="p-8 font-serif bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left">
+    <div className={`font-serif bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       {/* Symmetrical Centered Header */}
       <div className="text-center border-b border-slate-200 pb-4 mb-5">
         <h1 className="font-display text-3xl font-bold tracking-normal text-slate-900 mb-1">
@@ -450,7 +472,7 @@ export default function ResumePreview({
           </h3>
           <div className="space-y-4">
             {experience.map((exp, idx) => (
-              <div key={idx} className="text-xs">
+              <div key={idx} className="text-xs experience-item">
                 <div className="flex justify-between items-baseline font-semibold text-slate-900">
                   <span>{exp.designation} &mdash; <span className="font-normal italic">{exp.company}</span></span>
                   <span className="text-[10px] text-slate-500 font-mono">{exp.startDate} &ndash; {exp.endDate}</span>
@@ -467,7 +489,8 @@ export default function ResumePreview({
         </div>
 
         {/* Skills */}
-        <div>
+        <div className={enforceTwoPages ? "print:break-before-page pt-4" : ""}>
+          {renderPageBreakIndicator("TECHNICAL ARSENAL & EDUCATION")}
           <h3 className="font-display text-xs font-bold uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-1 mb-3">
             Technical Arsenal
           </h3>
@@ -491,7 +514,7 @@ export default function ResumePreview({
           </h3>
           <div className="space-y-2">
             {education.map((edu, idx) => (
-              <div key={idx} className="flex justify-between text-xs text-slate-800">
+              <div key={idx} className="flex justify-between text-xs text-slate-800 education-item">
                 <div>
                   <span className="font-bold">{edu.degree}</span> &mdash; <span className="italic text-slate-600">{edu.college}</span>
                 </div>
@@ -506,7 +529,9 @@ export default function ResumePreview({
 
   // --- TEMPLATE 4: Creative Designer (Accent borders, left display rule) ---
   const renderCreative = () => (
-    <div className={`p-8 font-sans bg-white text-slate-900 border-l-[10px] ${activeTheme.primaryBorder} border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left`}>
+    <div className={`font-sans bg-white text-slate-900 border-l-[10px] ${activeTheme.primaryBorder} border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       <div className="mb-6">
         <h1 className={`font-display text-4xl font-black ${activeTheme.heavyText} mb-1 uppercase tracking-tight`}>
           {info.fullName}
@@ -540,7 +565,7 @@ export default function ResumePreview({
           </h3>
           <div className="space-y-4">
             {experience.map((exp, idx) => (
-              <div key={idx} className={`text-xs border-l ${activeTheme.lightBorder} pl-4 relative ml-1`}>
+              <div key={idx} className={`text-xs border-l ${activeTheme.lightBorder} pl-4 relative ml-1 experience-item`}>
                 <span className={`absolute w-2.5 h-2.5 ${activeTheme.primaryBg} rounded-full border-2 border-white -left-[5px] top-1`}></span>
                 <div className="flex justify-between font-bold text-slate-950">
                   <span>{exp.designation} @ <span className={`${activeTheme.primaryText}`}>{exp.company}</span></span>
@@ -556,7 +581,8 @@ export default function ResumePreview({
         </div>
 
         {/* Skills as badges */}
-        <div>
+        <div className={enforceTwoPages ? "print:break-before-page pt-4" : ""}>
+          {renderPageBreakIndicator("SPECIALIZATIONS & EDUCATION")}
           <h3 className={`font-display text-sm font-bold ${activeTheme.heavyText} mb-3 flex items-center gap-2 uppercase tracking-wider`}>
             <span className={`w-1.5 h-4 ${activeTheme.primaryBg} rounded-sm`}></span> Key Specializations
           </h3>
@@ -579,7 +605,7 @@ export default function ResumePreview({
           </h3>
           <div className="space-y-2">
             {education.map((edu, idx) => (
-              <div key={idx} className="text-xs p-3 bg-slate-50 border border-slate-100 rounded-lg">
+              <div key={idx} className="text-xs p-3 bg-slate-50 border border-slate-100 rounded-lg education-item">
                 <div className="font-bold text-slate-900">{edu.degree}</div>
                 <div className="text-slate-500">{edu.college} | CGPA: {edu.cgpa}</div>
                 <div className={`text-[10px] font-mono ${activeTheme.primaryText} mt-0.5`}>{edu.year}</div>
@@ -593,7 +619,9 @@ export default function ResumePreview({
 
   // --- TEMPLATE 5: SaaS Corporate (Sleek sections, professional dark headings) ---
   const renderCorporate = () => (
-    <div className="p-8 font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left">
+    <div className={`font-sans bg-white text-slate-900 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b-4 border-slate-800 pb-4 mb-5">
         <div>
           <h1 className="font-display text-4xl font-extrabold tracking-tight text-slate-900 uppercase">
@@ -626,7 +654,7 @@ export default function ResumePreview({
           <h4 className="text-xs font-bold uppercase text-slate-900 tracking-wider border-b border-slate-300 pb-1 mb-3">Employment Experience</h4>
           <div className="space-y-4">
             {experience.map((exp, idx) => (
-              <div key={idx} className="text-xs">
+              <div key={idx} className="text-xs experience-item">
                 <div className="flex justify-between items-baseline font-bold text-slate-900">
                   <span>{exp.designation} <span className="font-normal text-slate-500">at {exp.company}</span></span>
                   <span className="text-[10px] text-slate-500 font-mono">{exp.startDate} - {exp.endDate}</span>
@@ -641,7 +669,8 @@ export default function ResumePreview({
         </div>
 
         {/* Dynamic Skills categories */}
-        <div>
+        <div className={enforceTwoPages ? "print:break-before-page pt-4" : ""}>
+          {renderPageBreakIndicator("CORE EXPERTISE & ACADEMICS")}
           <h4 className="text-xs font-bold uppercase text-slate-900 tracking-wider border-b border-slate-300 pb-1 mb-3">Core Expertise</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
             {Object.entries(skills).map(([cat, list]) => {
@@ -661,7 +690,7 @@ export default function ResumePreview({
           <h4 className="text-xs font-bold uppercase text-slate-900 tracking-wider border-b border-slate-300 pb-1 mb-2">Education Background</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {education.map((edu, idx) => (
-              <div key={idx} className="text-[11px] text-slate-850">
+              <div key={idx} className="text-[11px] text-slate-850 education-item">
                 <div className="font-bold">{edu.degree}</div>
                 <div>{edu.college} | GPA: {edu.cgpa}</div>
                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">{edu.year}</div>
@@ -675,7 +704,9 @@ export default function ResumePreview({
 
   // --- TEMPLATE 6: Strict ATS Compliant (Symmetrical baseline, single-column) ---
   const renderATS = () => (
-    <div className="p-8 font-sans bg-white text-black leading-snug max-w-[21cm] min-h-[29.7cm] mx-auto text-left text-xs font-normal">
+    <div className={`font-sans bg-white text-black leading-snug max-w-[21cm] min-h-[29.7cm] mx-auto text-left text-xs font-normal ${
+      enforceTwoPages ? 'p-6 md:p-7 print:p-5 print:pt-4' : 'p-8'
+    }`}>
       {/* Centered flat name */}
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold tracking-tight uppercase mb-1">
@@ -722,7 +753,7 @@ export default function ResumePreview({
             <div className="font-bold uppercase border-b border-black text-[11px] tracking-wide mb-1">Professional Experience</div>
             <div className="space-y-3">
               {experience.map((exp, idx) => (
-                <div key={idx} className="text-[11px]">
+                <div key={idx} className="text-[11px] experience-item">
                   <div className="flex justify-between items-baseline font-bold">
                     <span>{exp.company} &mdash; {exp.location}</span>
                     <span className="font-medium">{exp.startDate} &ndash; {exp.endDate}</span>
@@ -739,11 +770,12 @@ export default function ResumePreview({
 
         {/* Education */}
         {education.length > 0 && (
-          <div>
+          <div className={enforceTwoPages ? "print:break-before-page pt-4" : ""}>
+            {renderPageBreakIndicator("EDUCATION & QUALIFICATIONS")}
             <div className="font-bold uppercase border-b border-black text-[11px] tracking-wide mb-1">Education & Qualifications</div>
             <div className="space-y-1.5">
               {education.map((edu, idx) => (
-                <div key={idx} className="text-[11px]">
+                <div key={idx} className="text-[11px] education-item">
                   <div className="flex justify-between font-bold">
                     <span>{edu.college} &mdash; {edu.university}</span>
                     <span className="font-medium">{edu.year}</span>

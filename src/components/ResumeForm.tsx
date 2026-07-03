@@ -24,6 +24,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ResumeData, Experience, Project, Education } from '../types.ts';
+import AIFieldImprovement from './AIFieldImprovement.tsx';
 
 interface ResumeFormProps {
   data: ResumeData;
@@ -691,7 +692,15 @@ export default function ResumeForm({ data, onChange, appTheme = 'dark' }: Resume
       {activeSection === 'summary' && (
         <div className="space-y-4 text-left">
           <div className="flex items-center justify-between">
-            <label className="block text-slate-400 text-xs font-semibold uppercase">Professional Summary</label>
+            <div className="flex items-center gap-2">
+              <label className="block text-slate-400 text-xs font-semibold uppercase">Professional Summary</label>
+              <AIFieldImprovement 
+                fieldName="Professional Summary"
+                currentValue={data.professionalSummary}
+                onUpdate={updateSummary}
+                appTheme={appTheme}
+              />
+            </div>
             <button
               id="btn-improve-summary"
               type="button"
@@ -967,7 +976,18 @@ export default function ResumeForm({ data, onChange, appTheme = 'dark' }: Resume
                                 className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                                 placeholder="Worked on React frontend modules..."
                               />
-                              <div className="flex justify-end">
+                              <div className="flex justify-end items-center gap-2">
+                                <AIFieldImprovement 
+                                  fieldName={`Experience bullet #${rIdx + 1}`}
+                                  currentValue={resp}
+                                  onUpdate={(newVal) => {
+                                    const nextResp = [...exp.responsibilities];
+                                    nextResp[rIdx] = newVal;
+                                    handleUpdateExperience(idx, 'responsibilities', nextResp);
+                                  }}
+                                  profession={exp.designation}
+                                  appTheme={appTheme}
+                                />
                                 <button
                                   type="button"
                                   disabled={improvingBullet[bulletKey] || !resp.trim()}
@@ -1082,7 +1102,15 @@ export default function ResumeForm({ data, onChange, appTheme = 'dark' }: Resume
                     </div>
 
                     <div className="col-span-1 sm:col-span-2">
-                      <label className="block text-slate-400 text-xs font-semibold mb-1 uppercase">Description</label>
+                      <div className="flex items-center gap-2 mb-1">
+                        <label className="block text-slate-400 text-xs font-semibold uppercase">Description</label>
+                        <AIFieldImprovement 
+                          fieldName={`Project "${proj.title}" Description`}
+                          currentValue={proj.description}
+                          onUpdate={(newVal) => handleUpdateProject(idx, 'description', newVal)}
+                          appTheme={appTheme}
+                        />
+                      </div>
                       {renderFormattingToolbar(`proj-desc-${idx}`, proj.description, (newVal) => handleUpdateProject(idx, 'description', newVal))}
                       <textarea
                         id={`proj-desc-${idx}`}

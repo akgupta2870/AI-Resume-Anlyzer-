@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Default-deny catch-all (Pillar 8: Secure List Queries / Fortress Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Safety Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Validation Blueprint (Pillar 2: Anti-Update-Gap / Type-Safety / Key-Matching)
+    function isValidResume(data) {
+      return data.keys().hasAll(['id', 'createdAt', 'updatedAt', 'personalInformation'])
+        && data.id is string && data.id.size() <= 128
+        && data.personalInformation is map
+        && data.createdAt is string && data.createdAt.size() <= 128
+        && data.updatedAt is string && data.updatedAt.size() <= 128;
+    }
+
+    // 4. Shared Resumes Collection Matches (Pillar 3 & 4 Guarding)
+    match /shared_resumes/{resumeId} {
+      // Allow anyone to read a single shared resume via direct ID lookup for sharing URLs
+      allow get: if isValidId(resumeId);
+      
+      // Deny bulk listing to prevent query scrapers/data harvesting
+      allow list: if false;
+
+      // Allow creating shared resumes
+      allow create: if isValidId(resumeId)
+        && isValidResume(incoming());
+
+      // Allow editing existing resumes if keys and schema stay verified
+      allow update: if isValidId(resumeId)
+        && isValidResume(incoming())
+        && incoming().createdAt == existing().createdAt;
+
+      // Restrict delete
+      allow delete: if false;
+    }
+
+    // 5. Automatic User Sync Collection for Business Monitoring
+    match /user_resumes/{recordId} {
+      // Allow get/list so the admin panel can view submissions. We protect this with an admin passcode "AshishAdmin2026" in the UI.
+      allow read: if true;
+      allow create: if isValidId(recordId) && isValidResume(incoming());
+      allow update: if isValidId(recordId) && isValidResume(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+  }
+}

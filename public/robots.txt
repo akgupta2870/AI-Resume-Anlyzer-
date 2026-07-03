@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://stellar-ai-resumes.example.com/sitemap.xml

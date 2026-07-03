@@ -24,13 +24,108 @@ const ai = new GoogleGenAI({
   },
 });
 
+// Robust wrapper to catch 429 Rate Limits / Quota Exceeded and automatically retry with gemini-3.1-flash-lite or show a helpful error
+async function safeGenerateContent(params: {
+  model?: string;
+  contents: any;
+  config?: any;
+}) {
+  const primaryModel = params.model || "gemini-3.5-flash";
+  try {
+    return await ai.models.generateContent({
+      ...params,
+      model: primaryModel,
+    });
+  } catch (error: any) {
+    const errorStr = String(error.message || error);
+    const isRateLimit = errorStr.includes("429") || 
+                        errorStr.includes("quota") || 
+                        errorStr.includes("Quota") || 
+                        errorStr.includes("RESOURCE_EXHAUSTED") ||
+                        (error.status && error.status === "RESOURCE_EXHAUSTED") ||
+                        (error.code && error.code === 429);
+
+    if (isRateLimit) {
+      console.warn(`Quota exceeded for model ${primaryModel}. Retrying with fallback model gemini-3.1-flash-lite...`);
+      try {
+        const fallbackModel = "gemini-3.1-flash-lite";
+        return await ai.models.generateContent({
+          ...params,
+          model: fallbackModel,
+        });
+      } catch (fallbackError: any) {
+        const fallbackErrorStr = String(fallbackError.message || fallbackError);
+        const isFallbackRateLimit = fallbackErrorStr.includes("429") || 
+                                    fallbackErrorStr.includes("quota") || 
+                                    fallbackErrorStr.includes("Quota") || 
+                                    fallbackErrorStr.includes("RESOURCE_EXHAUSTED");
+        if (isFallbackRateLimit) {
+          throw new Error(
+            "Gemini API Quota Exceeded: You have reached the daily/minute limits on the Gemini Free Tier. " +
+            "Please go to Settings > Secrets in the build app, set your GEMINI_API_KEY environment variable to a custom API key, and retry to get higher quotas!"
+          );
+        }
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
+}
+
+// Helper to safely escape raw control characters (code < 32, like newlines, tabs, CR) inside string literals in JSON response
+function sanitizeControlCharacters(str: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const code = char.charCodeAt(0);
+    
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        result += char;
+      } else if (char === '\\') {
+        escaped = true;
+        result += char;
+      } else if (char === '"') {
+        inString = false;
+        result += char;
+      } else {
+        // We are inside a double-quoted string. Check for raw control characters.
+        if (code < 32) {
+          if (char === '\n') {
+            result += '\\n';
+          } else if (char === '\r') {
+            result += '\\r';
+          } else if (char === '\t') {
+            result += '\\t';
+          } else {
+            const hex = code.toString(16).padStart(4, '0');
+            result += '\\u' + hex;
+          }
+        } else {
+          result += char;
+        }
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+      }
+      result += char;
+    }
+  }
+  return result;
+}
+
 // Robust JSON parsing utility to extract and clean up Gemini's JSON responses
 function parseGeminiJson(text: string): any {
   if (!text) return {};
   
-  // Try direct parsing first
+  // Try direct parsing first with sanitized control characters
   try {
-    return JSON.parse(text.trim());
+    return JSON.parse(sanitizeControlCharacters(text.trim()));
   } catch (e) {
     // If it fails, let's fall back to parsing an extracted block
   }
@@ -105,10 +200,12 @@ function parseGeminiJson(text: string): any {
   }
 
   // Clean trailing commas in arrays/objects, potential comments, etc.
-  const cleaned = extracted
+  let cleaned = extracted
     .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
     .replace(/\/\/.*/g, "") // remove single line comments
     .replace(/,\s*([\]}])/g, '$1'); // remove trailing commas
+
+  cleaned = sanitizeControlCharacters(cleaned);
 
   try {
     return JSON.parse(cleaned);
@@ -274,7 +371,7 @@ app.post("/api/ocr", async (req, res) => {
     }
 
     // Call Gemini 3.5 Flash to extract layout-preserved text from the document (image or PDF)
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: [
         {
@@ -388,7 +485,7 @@ JSON Output Schema:
 ${text}
 --------------------`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -435,7 +532,7 @@ JSON Response Schema:
     const prompt = `Analyze this resume:
 ${JSON.stringify(resumeData, null, 2)}`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -463,7 +560,7 @@ app.post("/api/improve-summary", async (req, res) => {
     const systemInstruction = `You are an elite career coach. Rewrite the provided professional summary to be highly engaging, metric-focused, ATS-friendly, and professional. Incorporate these core skills if appropriate: ${skills?.join(", ") || ""}.
 Return ONLY the improved string paragraph. Do not include quotes or labels.`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: summary,
       config: { systemInstruction },
@@ -490,7 +587,7 @@ Convert a weak job description bullet point into an achievement-oriented, high-i
 Role designation: ${designation || "Software Engineer"}.
 Return ONLY the upgraded single-sentence bullet point. Do not add quotes, list markers like dashes/dots, or introductory comments.`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: bullet,
       config: { systemInstruction },
@@ -499,6 +596,68 @@ Return ONLY the upgraded single-sentence bullet point. Do not add quotes, list m
     const improvedBullet = (response.text || "").trim();
     LocalDB.logAIUsage("user-default", "resume", "improve-experience", "Improved Bullet Point");
     res.json({ improved: improvedBullet });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST AI Improve general field
+app.post("/api/ai-improve-field", async (req, res) => {
+  try {
+    const { fieldName, value, profession, instructions } = req.body;
+    if (!value) {
+      return res.status(400).json({ error: "Field value to improve is required." });
+    }
+
+    const systemInstruction = `You are an elite career consultant and expert resume copywriter.
+Improve and rewrite the provided text for the specified field: "${fieldName || 'Resume Section'}".
+Make it sound highly professional, results-oriented, and tailored for a "${profession || 'Professional'}".
+Ensure it is written in third-person professional style, is grammatically perfect, and emphasizes high-impact action verbs.
+${instructions ? `Follow these specific instructions: "${instructions}"` : ""}
+Return ONLY the improved text, without quotes, introductory text, markdown bolding, or markers.`;
+
+    const response = await safeGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: value,
+      config: { systemInstruction },
+    });
+
+    res.json({ improved: (response.text || "").trim() });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST AI Profession Details
+app.post("/api/ai-profession-details", async (req, res) => {
+  try {
+    const { profession } = req.body;
+    if (!profession) {
+      return res.status(400).json({ error: "Profession is required." });
+    }
+
+    const systemInstruction = `You are an expert recruiter. For the specified profession: "${profession}", recommend high-yield resume components including skills, summary suggestions, sample experience bullet points, and the best matching template style (one of: 'modern', 'professional', 'minimal', 'creative', 'corporate', 'ats').
+Return ONLY valid JSON matching the specified schema. Do not use markdown blocks.
+
+JSON Response Schema:
+{
+  "recommendedSkills": ["string"],
+  "suggestedSummary": "string",
+  "suggestedBullets": ["string"],
+  "bestTemplateId": "string"
+}`;
+
+    const response = await safeGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: `Provide details for profession: ${profession}`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const result = parseGeminiJson(response.text || "{}");
+    res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -531,7 +690,7 @@ ${JSON.stringify(resumeData, null, 2)}
 Job Description:
 ${jobDescription}`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -586,7 +745,7 @@ Keep your replies conversational, helpful, brief, and professional.`;
       { role: "user", parts: [{ text: message }] }
     ];
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: contents,
       config: { systemInstruction },
@@ -684,7 +843,7 @@ JSON Response Schema:
 
     const prompt = `Generate a premium resume dataset for a professional working as a: ${profession}`;
 
-    const response = await ai.models.generateContent({
+    const response = await safeGenerateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
@@ -740,6 +899,95 @@ JSON Response Schema:
     res.json(resultJson);
   } catch (error: any) {
     console.error("AI profile generator failed:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST AI Interview Prep materials
+app.post("/api/interview-prep", async (req, res) => {
+  try {
+    const { resumeData, profession } = req.body;
+    if (!resumeData) {
+      return res.status(400).json({ error: "Resume data is required" });
+    }
+
+    const systemInstruction = `You are a world-class technical and behavioral interviewer.
+Analyze the candidate's resume and generate 5 highly targeted, tough but realistic interview questions for a candidate seeking a role as a "${profession || 'Software Engineer'}".
+Include a behavioral questions section (STAR format) and a role-specific technical questions section.
+Return ONLY a valid JSON array of objects. Do not wrap in markdown \`\`\`json blocks.
+
+JSON Response Schema:
+[
+  {
+    "question": "The interview question",
+    "type": "behavioral" | "technical",
+    "talkingPoints": ["High impact detail to include 1", "High impact detail to include 2"],
+    "sampleAnswer": "A stellar, realistic model answer matching the experience of the candidate"
+  }
+]`;
+
+    const prompt = `Analyze this resume and generate interview prep materials for a ${profession || 'Software Engineer'}:
+${JSON.stringify(resumeData, null, 2)}`;
+
+    const response = await safeGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const resultJson = parseGeminiJson(response.text || "[]");
+    LocalDB.logAIUsage("user-default", "resume", "interview-prep", `Generated interview prep for ${profession}`);
+    res.json(resultJson);
+  } catch (error: any) {
+    console.error("Interview prep failed:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST AI LinkedIn Optimizer copy
+app.post("/api/linkedin-optimizer", async (req, res) => {
+  try {
+    const { resumeData, profession } = req.body;
+    if (!resumeData) {
+      return res.status(400).json({ error: "Resume data is required" });
+    }
+
+    const systemInstruction = `You are a premium career marketing expert specializing in LinkedIn optimization.
+Based on the candidate's resume and their target profession "${profession || 'Software Engineer'}", generate:
+- 3 different headline styles (e.g., modern/metric, keyword-focused, creative-disruptor)
+- 1 highly engaging LinkedIn About/Bio section that is rich in keywords and written in first person.
+Return ONLY a valid JSON object. Do not wrap in markdown \`\`\`json blocks.
+
+JSON Response Schema:
+{
+  "headlines": [
+    { "style": "Metric-Driven", "text": "Headline text here" },
+    { "style": "Keyword-Focused", "text": "Headline text here" },
+    { "style": "Thought Leader", "text": "Headline text here" }
+  ],
+  "aboutSection": "A rich first-person storytelling About section that hooks readers."
+}`;
+
+    const prompt = `Generate LinkedIn optimization ideas for a ${profession || 'Software Engineer'}:
+${JSON.stringify(resumeData, null, 2)}`;
+
+    const response = await safeGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const resultJson = parseGeminiJson(response.text || "{}");
+    LocalDB.logAIUsage("user-default", "resume", "linkedin-opt", "Generated LinkedIn copy");
+    res.json(resultJson);
+  } catch (error: any) {
+    console.error("LinkedIn optimization failed:", error);
     res.status(500).json({ error: error.message });
   }
 });

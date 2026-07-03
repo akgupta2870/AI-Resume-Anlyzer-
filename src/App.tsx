@@ -13,9 +13,20 @@ import {
   Check,
   Cpu,
   Sun,
-  Moon
+  Moon,
+  Cloud,
+  Share2,
+  Trash2,
+  Save,
+  FileEdit,
+  Info,
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 import { motion } from 'motion/react';
+
+// Firebase Cloud Helpers
+import { getFirebaseDB, saveResumeToFirebase, getResumeFromFirebase, syncUserResumeToFirebase } from './firebase.ts';
 
 // Components
 import LandingPage from './components/LandingPage.tsx';
@@ -24,6 +35,9 @@ import ResumePreview from './components/ResumePreview.tsx';
 import AISuite from './components/AISuite.tsx';
 import DashboardStats from './components/DashboardStats.tsx';
 import VersionHistory from './components/VersionHistory.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
+import AdDownloadGate from './components/AdDownloadGate.tsx';
+import ProfessionHelper from './components/ProfessionHelper.tsx';
 
 // Theme maps for active state controls
 const themeGradients: Record<string, string> = {
@@ -62,8 +76,17 @@ const themeButtonStyles: Record<string, string> = {
   violet: "bg-violet-600 hover:bg-violet-700",
 };
 
+const themeSelectionBg: Record<string, string> = {
+  indigo: "bg-indigo-600",
+  emerald: "bg-emerald-600",
+  rose: "bg-rose-600",
+  amber: "bg-amber-600",
+  slate: "bg-slate-600",
+  violet: "bg-violet-600",
+};
+
 // Types
-import { ResumeData, DashboardStats as StatsType } from './types.ts';
+import { ResumeData, DashboardStats as StatsType, ArchivedResume } from './types.ts';
 
 // Detailed predefined resume mock payload for Ashish Gupta
 const DEFAULT_ASHISH_RESUME: ResumeData = {
@@ -174,10 +197,39 @@ const DEFAULT_ASHISH_RESUME: ResumeData = {
 };
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<'landing' | 'builder' | 'dashboard'>('landing');
+  const [viewMode, setViewMode] = useState<'landing' | 'builder' | 'dashboard' | 'admin'>('landing');
   const [parsedData, setParsedData] = useState<ResumeData>(DEFAULT_ASHISH_RESUME);
   const [originalText, setOriginalText] = useState('');
   
+  // Track where current active resume data is coming from (default predefined vs custom uploaded/edited)
+  const [resumeSource, setResumeSource] = useState<'default' | 'uploaded'>('default');
+
+  // Background Device Sync Session (Generated once per browser visit)
+  const [deviceSessionId] = useState(() => {
+    const key = 'ashish_device_session_id';
+    let id = sessionStorage.getItem(key);
+    if (!id) {
+      id = `session-${Math.random().toString(36).substring(2, 12)}-${Date.now()}`;
+      sessionStorage.setItem(key, id);
+    }
+    return id;
+  });
+
+  // Track selected target profession
+  const [profession, setProfession] = useState('Software Engineer');
+
+  // Ad Download gate control
+  const [showAdGate, setShowAdGate] = useState(false);
+
+  // Firebase status & cloud share state
+  const [firebaseChecked, setFirebaseChecked] = useState(false);
+  const [firebaseAvailable, setFirebaseAvailable] = useState(false);
+  const [sharingResume, setSharingResume] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [customShareId, setCustomShareId] = useState('');
+  const [isReadOnlyShare, setIsReadOnlyShare] = useState(false);
+  const [loadingShare, setLoadingShare] = useState(false);
+
   // Custom templates selector
   const [activeTemplate, setActiveTemplate] = useState('modern');
   
@@ -191,15 +243,163 @@ export default function App() {
   const [fontStyle, setFontStyle] = useState('sans');
   const [fontSize, setFontSize] = useState('medium');
   const [fontColor, setFontColor] = useState('#1e293b');
+
+  // Enforce exactly 2-page print layout mode
+  const [enforceTwoPages, setEnforceTwoPages] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ashish_enforce_two_pages');
+    return saved !== null ? saved === 'true' : true;
+  });
   
   // Undo/Redo tracking state stacks
   const [historyStack, setHistoryStack] = useState<ResumeData[]>([DEFAULT_ASHISH_RESUME]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  // Saved resumes archive states
+  const [showScratchConfirm, setShowScratchConfirm] = useState(false);
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(() => {
+    return localStorage.getItem('ashish_current_resume_id');
+  });
+  const [archivedResumes, setArchivedResumes] = useState<ArchivedResume[]>(() => {
+    try {
+      const saved = localStorage.getItem('ashish_saved_resumes_archive');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Live Metrics Stats state
   const [stats, setStats] = useState<StatsType | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [showNotification, setShowNotification] = useState<string | null>(null);
+
+  // Check for firebase database on mount
+  useEffect(() => {
+    getFirebaseDB().then((db) => {
+      if (db) {
+        setFirebaseAvailable(true);
+      }
+      setFirebaseChecked(true);
+    });
+  }, []);
+
+  // Check localStorage and shared cloud link on mount
+  useEffect(() => {
+    try {
+      const savedResume = localStorage.getItem('ashish_resume_data');
+      const savedText = localStorage.getItem('ashish_resume_text');
+      const savedActiveTemplate = localStorage.getItem('ashish_active_template');
+      const savedThemeColor = localStorage.getItem('ashish_theme_color');
+      const savedAppTheme = localStorage.getItem('ashish_app_theme');
+      const savedFontStyle = localStorage.getItem('ashish_font_style');
+      const savedFontSize = localStorage.getItem('ashish_font_size');
+      const savedFontColor = localStorage.getItem('ashish_font_color');
+
+      // 1. Check if we have a direct shared ID from cloud in URL query string
+      const params = new URLSearchParams(window.location.search);
+      const sharedId = params.get('id');
+      if (sharedId) {
+        setLoadingShare(true);
+        getResumeFromFirebase(sharedId).then((data) => {
+          if (data) {
+            setParsedData(data);
+            setResumeSource('uploaded'); // Treating shared copy as uploaded/custom editable
+            setIsReadOnlyShare(true);
+            setHistoryStack([data]);
+            setHistoryIndex(0);
+            setViewMode('builder');
+            triggerNotification("Loaded shared resume from Cloud successfully!");
+          } else {
+            triggerNotification("The shared cloud resume could not be found.");
+          }
+          setLoadingShare(false);
+        }).catch((err) => {
+          console.error("Failed to load shared resume:", err);
+          setLoadingShare(false);
+        });
+        return;
+      }
+
+      // 2. Otherwise load custom resume from localStorage if present
+      if (savedResume) {
+        const parsed = JSON.parse(savedResume);
+        setParsedData(parsed);
+        setResumeSource('uploaded');
+        setHistoryStack([parsed]);
+        setHistoryIndex(0);
+        setViewMode('builder'); // Hold on the second page (builder view) on refresh!
+      }
+      
+      if (savedText) setOriginalText(savedText);
+      if (savedActiveTemplate) setActiveTemplate(savedActiveTemplate);
+      if (savedThemeColor) setThemeColor(savedThemeColor);
+      if (savedAppTheme) setAppTheme(savedAppTheme as 'dark' | 'bloom');
+      if (savedFontStyle) setFontStyle(savedFontStyle);
+      if (savedFontSize) setFontSize(savedFontSize);
+      if (savedFontColor) setFontColor(savedFontColor);
+
+    } catch (e) {
+      console.error("Failed to restore state from local storage:", e);
+    }
+  }, []);
+
+  // Save updates back to localStorage continuously if they belong to "uploaded" source
+  useEffect(() => {
+    if (resumeSource === 'uploaded' && parsedData !== DEFAULT_ASHISH_RESUME) {
+      try {
+        localStorage.setItem('ashish_resume_data', JSON.stringify(parsedData));
+      } catch (e) {
+        console.error("Failed to write resume data:", e);
+      }
+    }
+  }, [parsedData, resumeSource]);
+
+  useEffect(() => {
+    if (resumeSource === 'uploaded' && originalText) {
+      localStorage.setItem('ashish_resume_text', originalText);
+    }
+  }, [originalText, resumeSource]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_active_template', activeTemplate);
+  }, [activeTemplate]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_theme_color', themeColor);
+  }, [themeColor]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_app_theme', appTheme);
+  }, [appTheme]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_font_style', fontStyle);
+  }, [fontStyle]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_font_size', fontSize);
+  }, [fontSize]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_font_color', fontColor);
+  }, [fontColor]);
+
+  useEffect(() => {
+    localStorage.setItem('ashish_enforce_two_pages', String(enforceTwoPages));
+  }, [enforceTwoPages]);
+
+  // Background silent auto-sync to Firebase Firestore (saves progress without prompt)
+  useEffect(() => {
+    if (!parsedData || parsedData === DEFAULT_ASHISH_RESUME) return;
+    const timer = setTimeout(async () => {
+      try {
+        await syncUserResumeToFirebase(deviceSessionId, parsedData);
+      } catch (err) {
+        console.warn("Silent background auto-sync to Firestore skipped or failed:", err);
+      }
+    }, 2000); // 2 second debounce to prevent aggressive write spam
+    return () => clearTimeout(timer);
+  }, [parsedData, deviceSessionId]);
 
   // Load stats from server
   const fetchStats = async () => {
@@ -231,26 +431,266 @@ export default function App() {
 
   // Callback when user parses a new document successfully
   const handleParsedSuccess = (newData: any, rawText: string) => {
+    const newId = `resume-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const candidateName = newData.personalInformation?.fullName || newData.personalInformation?.firstName || "Uploaded Resume";
+    const dateStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const displayName = `${candidateName} (${dateStr})`;
+
+    const newArchiveItem: ArchivedResume = {
+      id: newId,
+      name: displayName,
+      timestamp: new Date().toISOString(),
+      originalText: rawText,
+      uploadedFormat: JSON.parse(JSON.stringify(newData)),
+      updatedFormat: JSON.parse(JSON.stringify(newData)),
+      profession: profession
+    };
+
+    const nextArchived = [newArchiveItem, ...archivedResumes];
+    setArchivedResumes(nextArchived);
+    localStorage.setItem('ashish_saved_resumes_archive', JSON.stringify(nextArchived));
+
+    setCurrentResumeId(newId);
+    localStorage.setItem('ashish_current_resume_id', newId);
+
     setParsedData(newData);
     setOriginalText(rawText);
+    setResumeSource('uploaded');
+    setIsReadOnlyShare(false); // Enable edits on their newly uploaded resume
+    
+    try {
+      localStorage.setItem('ashish_resume_data', JSON.stringify(newData));
+      localStorage.setItem('ashish_resume_text', rawText);
+    } catch (e) {
+      console.error(e);
+    }
     
     // Reset undo-redo stack
     setHistoryStack([newData]);
     setHistoryIndex(0);
     
     setViewMode('builder');
-    triggerNotification("Resume successfully structured and optimized!");
+    triggerNotification(`Successfully uploaded & archived "${candidateName}"!`);
     fetchStats(); // Update live statistics logs
   };
 
   // Trigger Ashish's predefined profile directly
   const handleLoadDefault = () => {
+    setResumeSource('default');
+    setIsReadOnlyShare(false);
+    setCurrentResumeId(null);
+    localStorage.removeItem('ashish_current_resume_id');
     setParsedData(DEFAULT_ASHISH_RESUME);
     setOriginalText("Ashish Gupta\nLead Full Stack Architect...");
     setHistoryStack([DEFAULT_ASHISH_RESUME]);
     setHistoryIndex(0);
     setViewMode('builder');
     triggerNotification("Loaded Ashish's premium engineer profile!");
+  };
+
+  // Load custom resume from browser storage
+  const handleLoadUploaded = () => {
+    const savedResume = localStorage.getItem('ashish_resume_data');
+    const savedText = localStorage.getItem('ashish_resume_text');
+    const savedCurrentId = localStorage.getItem('ashish_current_resume_id');
+    if (savedResume) {
+      try {
+        const parsed = JSON.parse(savedResume);
+        setParsedData(parsed);
+        if (savedText) setOriginalText(savedText);
+        setResumeSource('uploaded');
+        setIsReadOnlyShare(false);
+        setHistoryStack([parsed]);
+        setHistoryIndex(0);
+        if (savedCurrentId) {
+          setCurrentResumeId(savedCurrentId);
+        }
+        triggerNotification("Loaded your custom uploaded resume!");
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      triggerNotification("No custom uploaded resume found in browser memory.");
+    }
+  };
+
+  // Clear local storage and switch to default profile
+  const handleClearSavedResume = () => {
+    localStorage.removeItem('ashish_resume_data');
+    localStorage.removeItem('ashish_resume_text');
+    localStorage.removeItem('ashish_current_resume_id');
+    setCurrentResumeId(null);
+    setResumeSource('default');
+    setIsReadOnlyShare(false);
+    setParsedData(DEFAULT_ASHISH_RESUME);
+    setOriginalText("Ashish Gupta\nLead Full Stack Architect...");
+    setHistoryStack([DEFAULT_ASHISH_RESUME]);
+    setHistoryIndex(0);
+    triggerNotification("Cleared all uploaded resume data from browser storage!");
+  };
+
+  // Trigger modal trigger instead of blocked window.confirm
+  const handleCreateFromScratch = () => {
+    setShowScratchConfirm(true);
+  };
+
+  // Actually execute creating from scratch
+  const executeCreateFromScratch = () => {
+    const EMPTY_RESUME: ResumeData = {
+      personalInformation: {
+        fullName: "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "",
+        postalCode: "",
+        linkedin: "",
+        github: "",
+        portfolio: "",
+        website: ""
+      },
+      professionalSummary: "",
+      skills: {
+        frontend: [],
+        backend: [],
+        database: [],
+        cloud: [],
+        devops: [],
+        languages: [],
+        frameworks: [],
+        tools: [],
+        others: []
+      },
+      experience: [],
+      projects: [],
+      education: [],
+      certifications: [],
+      achievements: [],
+      languagesKnown: [],
+      interests: [],
+      references: []
+    };
+
+    const newId = `scratch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const dateStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const displayName = `Scratch Resume (${dateStr})`;
+
+    const newArchiveItem: ArchivedResume = {
+      id: newId,
+      name: displayName,
+      timestamp: new Date().toISOString(),
+      originalText: "",
+      uploadedFormat: JSON.parse(JSON.stringify(EMPTY_RESUME)),
+      updatedFormat: JSON.parse(JSON.stringify(EMPTY_RESUME)),
+      profession: profession
+    };
+
+    const nextArchived = [newArchiveItem, ...archivedResumes];
+    setArchivedResumes(nextArchived);
+    localStorage.setItem('ashish_saved_resumes_archive', JSON.stringify(nextArchived));
+
+    setCurrentResumeId(newId);
+    localStorage.setItem('ashish_current_resume_id', newId);
+
+    setParsedData(EMPTY_RESUME);
+    setOriginalText("");
+    setResumeSource('uploaded');
+    setIsReadOnlyShare(false);
+    
+    try {
+      localStorage.setItem('ashish_resume_data', JSON.stringify(EMPTY_RESUME));
+      localStorage.setItem('ashish_resume_text', "");
+    } catch (e) {
+      console.error("Failed to save blank state to storage:", e);
+    }
+    
+    // Reset history stacks
+    setHistoryStack([EMPTY_RESUME]);
+    setHistoryIndex(0);
+    
+    setViewMode('builder');
+    setShowScratchConfirm(false);
+    triggerNotification("Started building a new resume from scratch! Fill out the editor fields below.");
+  };
+
+  // Load a resume from local archive with selection format
+  const handleLoadArchivedResume = (resumeId: string, formatToLoad: 'uploaded' | 'updated') => {
+    const target = archivedResumes.find(r => r.id === resumeId);
+    if (!target) return;
+
+    const dataToLoad = formatToLoad === 'uploaded' ? target.uploadedFormat : target.updatedFormat;
+    
+    setParsedData(JSON.parse(JSON.stringify(dataToLoad)));
+    setOriginalText(target.originalText);
+    setResumeSource('uploaded');
+    setIsReadOnlyShare(false);
+    setCurrentResumeId(target.id);
+    localStorage.setItem('ashish_current_resume_id', target.id);
+
+    try {
+      localStorage.setItem('ashish_resume_data', JSON.stringify(dataToLoad));
+      localStorage.setItem('ashish_resume_text', target.originalText);
+    } catch (e) {
+      console.error(e);
+    }
+
+    setHistoryStack([JSON.parse(JSON.stringify(dataToLoad))]);
+    setHistoryIndex(0);
+
+    setViewMode('builder');
+    triggerNotification(`Loaded "${target.name.split(' (')[0]}" (${formatToLoad === 'uploaded' ? 'original upload' : 'updated edit'} format)`);
+  };
+
+  // Delete resume from archive
+  const handleDeleteArchivedResume = (resumeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedArchived = archivedResumes.filter(r => r.id !== resumeId);
+    setArchivedResumes(updatedArchived);
+    localStorage.setItem('ashish_saved_resumes_archive', JSON.stringify(updatedArchived));
+
+    if (currentResumeId === resumeId) {
+      setCurrentResumeId(null);
+      localStorage.removeItem('ashish_current_resume_id');
+      handleLoadDefault();
+    }
+    triggerNotification("Archived resume deleted successfully.");
+  };
+
+  // Sync and share resume to Firebase Firestore
+  const handleShareToCloud = async () => {
+    if (!parsedData) return;
+    setSharingResume(true);
+    try {
+      // Clean custom share ID or auto-generate
+      const randomId = Math.random().toString(36).substring(2, 10);
+      const cleanId = customShareId.trim().replace(/[^a-zA-Z0-9_\-]/g, '') || `resume-${randomId}`;
+      setCustomShareId(cleanId);
+
+      const success = await saveResumeToFirebase(cleanId, parsedData);
+      if (success) {
+        const base = window.location.origin + window.location.pathname;
+        const fullLink = `${base}?id=${cleanId}`;
+        setShareUrl(fullLink);
+        triggerNotification("Resume deployed successfully to Firebase Cloud!");
+      } else {
+        triggerNotification("Could not deploy. Please make sure Firebase setup is complete.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      // Try to parse error if it's JSON from handleFirestoreError
+      try {
+        const parsedErr = JSON.parse(e.message);
+        triggerNotification(`Deployment failed: ${parsedErr.error}`);
+      } catch {
+        triggerNotification("Deployment failed: " + e.message);
+      }
+    } finally {
+      setSharingResume(false);
+    }
   };
 
   // Handle data updates from editor form
@@ -262,6 +702,22 @@ export default function App() {
     newStack.push(JSON.parse(JSON.stringify(nextData))); // deep copy
     setHistoryStack(newStack);
     setHistoryIndex(newStack.length - 1);
+
+    // Keep active archived resume sync'ed
+    if (currentResumeId) {
+      const updatedArchived = archivedResumes.map(item => {
+        if (item.id === currentResumeId) {
+          return {
+            ...item,
+            updatedFormat: JSON.parse(JSON.stringify(nextData)),
+            timestamp: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+      setArchivedResumes(updatedArchived);
+      localStorage.setItem('ashish_saved_resumes_archive', JSON.stringify(updatedArchived));
+    }
   };
 
   // Undo/Redo functions
@@ -292,8 +748,13 @@ export default function App() {
     triggerNotification("Snapshot version restored successfully");
   };
 
-  // Print/Download PDF tracking
+  // Print/Download PDF tracking (Redirects to Sponsored Ad countdown first)
   const handleDownloadPDF = async () => {
+    setShowAdGate(true);
+  };
+
+  const handleExecuteDownload = async () => {
+    setShowAdGate(false);
     // Call server stats tracker to increment download counter
     try {
       await fetch('/api/export/track', {
@@ -308,6 +769,20 @@ export default function App() {
 
     // Open standard system print dialog
     window.print();
+  };
+
+  const handlePrefillSkills = (newSkills: string[]) => {
+    const nextSkills = { ...parsedData.skills };
+    if (!nextSkills.others) nextSkills.others = [];
+    const uniqueSkills = Array.from(new Set([...(nextSkills.others || []), ...newSkills]));
+    nextSkills.others = uniqueSkills;
+    handleDataUpdate({ ...parsedData, skills: nextSkills });
+    triggerNotification("Skills successfully injected into list!");
+  };
+
+  const handleSetSummary = (newSummary: string) => {
+    handleDataUpdate({ ...parsedData, professionalSummary: newSummary });
+    triggerNotification("Professional Summary updated!");
   };
 
   return (
@@ -343,7 +818,7 @@ export default function App() {
             </div>
             <div>
               <span className={`font-display font-bold text-base tracking-tight block ${
-                appTheme === 'bloom' ? 'text-indigo-850' : 'text-white'
+                appTheme === 'bloom' ? 'text-indigo-950' : 'text-white'
               }`}>Ashish's AI Resume Suite</span>
               <span className={`text-[10px] ${themeTextColors[themeColor] || 'text-indigo-400'} font-mono block -mt-1 font-semibold uppercase tracking-wider`}>Gemini 3.5 Engine</span>
             </div>
@@ -395,6 +870,21 @@ export default function App() {
               <span>Analytics</span>
             </button>
 
+            <button
+              onClick={() => setViewMode(viewMode === 'admin' ? 'builder' : 'admin')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
+                viewMode === 'admin'
+                  ? themeSelectionStyles[themeColor] || 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                  : appTheme === 'bloom'
+                    ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+                    : 'bg-slate-900 border-slate-850 text-yellow-400 hover:text-yellow-300'
+              }`}
+              title="Secure Admin Leads Dashboard"
+            >
+              <Lock className="w-3.5 h-3.5 animate-pulse text-yellow-500" />
+              <span>Admin Leads</span>
+            </button>
+
             {viewMode !== 'landing' && (
               <button
                 onClick={() => setViewMode('landing')}
@@ -418,7 +908,11 @@ export default function App() {
           <LandingPage 
             onParsed={handleParsedSuccess}
             onSelectDefault={handleLoadDefault}
+            onCreateScratch={handleCreateFromScratch}
             appTheme={appTheme}
+            archivedResumes={archivedResumes}
+            onLoadArchived={handleLoadArchivedResume}
+            onDeleteArchived={handleDeleteArchivedResume}
           />
         )}
 
@@ -431,11 +925,51 @@ export default function App() {
           />
         )}
 
+        {viewMode === 'admin' && (
+          <AdminPanel 
+            onBack={() => setViewMode('builder')}
+            appTheme={appTheme}
+          />
+        )}
+
         {viewMode === 'builder' && (
-          <div className="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
+            {isReadOnlyShare && (
+              <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-300 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn no-print text-left">
+                <div className="flex items-start sm:items-center gap-2.5">
+                  <Sparkles className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5 sm:mt-0" />
+                  <div>
+                    <span className="font-bold text-xs block">Viewing Cloud-Shared Resume Link 🌐</span>
+                    <span className="text-[11px] text-slate-400">You are currently looking at a copy deployed live to the server. You can fully customize, edit, or save a personal copy below!</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsReadOnlyShare(false);
+                    setResumeSource('uploaded');
+                    triggerNotification("Imported into your local editor copy!");
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md transition shrink-0"
+                >
+                  Edit Local Copy
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* Left Workspace Column: Controls, Forms, Versioning (col-span-5) */}
             <div className="lg:col-span-5 space-y-6 no-print">
+              
+              {/* Profession Tips Copilot Panel */}
+              <ProfessionHelper 
+                currentProfession={profession}
+                onSelectProfession={setProfession}
+                onPrefillSkills={handlePrefillSkills}
+                onSetTemplate={setActiveTemplate}
+                onSetSummary={handleSetSummary}
+                appTheme={appTheme}
+              />
               
               {/* Card 1: Template Selection & Global Action Controls */}
               <div className={`rounded-xl p-5 text-left space-y-4 border transition-all duration-300 ${
@@ -483,6 +1017,41 @@ export default function App() {
                       {tmpl.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Smart Two-Page Enforcer Switch */}
+                <div className={`p-3 rounded-lg border text-xs flex items-center justify-between transition-all duration-300 ${
+                  appTheme === 'bloom' 
+                    ? 'bg-rose-50/20 border-rose-100/60' 
+                    : 'bg-slate-950/40 border-slate-850'
+                }`}>
+                  <div className="flex flex-col text-left gap-0.5">
+                    <span className={`font-bold flex items-center gap-1.5 ${appTheme === 'bloom' ? 'text-slate-700' : 'text-slate-200'}`}>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      <span>Smart Two-Page Enforcer</span>
+                    </span>
+                    <span className={`text-[10px] leading-snug ${appTheme === 'bloom' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Adjusts padding, margins, and breaks to keep your resume under exactly 2 pages.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnforceTwoPages(!enforceTwoPages);
+                      triggerNotification(`Two-page enforcer ${!enforceTwoPages ? 'enabled' : 'disabled'}!`);
+                    }}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                      enforceTwoPages 
+                        ? themeSelectionBg[themeColor] || 'bg-indigo-600' 
+                        : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        enforceTwoPages ? 'translate-x-4.5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 {/* Accent Theme Color Selector */}
@@ -617,6 +1186,269 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Card 1.5: Data Storage & Firebase Cloud Deployment */}
+              <div className={`rounded-xl p-5 text-left space-y-4 border transition-all duration-300 ${
+                appTheme === 'bloom'
+                  ? 'bg-white/90 border-rose-100/80 shadow-md shadow-rose-100/10 text-slate-800'
+                  : 'bg-slate-900/40 border border-slate-800 text-white'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Cloud className={`w-4 h-4 ${themeTextColors[themeColor]}`} />
+                  <h4 className={`text-sm font-semibold ${appTheme === 'bloom' ? 'text-slate-800' : 'text-white'}`}>Cloud Sync & Storage Options</h4>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {/* Local storage source options */}
+                  <div className={`p-3 rounded-lg border text-xs space-y-2.5 ${
+                    appTheme === 'bloom' ? 'bg-slate-50/55 border-slate-100' : 'bg-slate-950/40 border-slate-850'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-semibold ${appTheme === 'bloom' ? 'text-slate-600' : 'text-slate-400'}`}>Active Profile Source</span>
+                      <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                        resumeSource === 'uploaded' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      }`}>
+                        {resumeSource === 'uploaded' ? 'My Uploaded Resume' : "Ashish's Default Profile"}
+                      </span>
+                    </div>
+
+                    <p className={`text-[11px] leading-relaxed ${appTheme === 'bloom' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {resumeSource === 'uploaded' 
+                        ? 'Editing your custom uploaded resume. Updates are preserved instantly in your browser (LocalStorage) and will hold on refresh.'
+                        : "Editing Ashish's predefined senior tech profile. Changes will not overwrite your uploaded resume."
+                      }
+                    </p>
+
+                    {archivedResumes.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                        <label className={`block text-[10px] font-bold uppercase tracking-wider ${appTheme === 'bloom' ? 'text-slate-500 font-semibold' : 'text-slate-400'}`}>
+                          Switch Archived Resume
+                        </label>
+                        <select
+                          value={currentResumeId || ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleLoadArchivedResume(e.target.value, 'updated');
+                            } else {
+                              handleLoadDefault();
+                            }
+                          }}
+                          className={`w-full bg-transparent border rounded-md px-2 py-1.5 text-xs font-semibold focus:outline-none ${
+                            appTheme === 'bloom'
+                              ? 'border-slate-200 text-slate-700 bg-white'
+                              : 'border-slate-850 text-slate-200 bg-slate-950'
+                          }`}
+                        >
+                          <option value="">-- Ashish's Default Profile --</option>
+                          {archivedResumes.map(res => (
+                            <option key={res.id} value={res.id}>{res.name.split(' (')[0]}</option>
+                          ))}
+                        </select>
+                        
+                        {currentResumeId && (
+                          <div className="flex gap-1.5 pt-1 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleLoadArchivedResume(currentResumeId, 'uploaded')}
+                              className={`text-[9px] font-semibold px-2 py-1 border rounded transition ${
+                                appTheme === 'bloom'
+                                  ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                  : 'bg-slate-900 border-slate-800 text-slate-450 hover:text-white'
+                              }`}
+                              title="Revert to original uploaded format for this resume"
+                            >
+                              Upload Format
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLoadArchivedResume(currentResumeId, 'updated')}
+                              className={`text-[9px] font-semibold px-2 py-1 border rounded transition ${
+                                appTheme === 'bloom'
+                                  ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+                                  : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/25'
+                              }`}
+                              title="Ensure current updated format is loaded"
+                            >
+                              Updated Format
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                     <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleCreateFromScratch}
+                        className={`col-span-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1 ${
+                          appTheme === 'bloom'
+                            ? 'bg-rose-50 border-rose-150 text-rose-600 hover:bg-rose-100'
+                            : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-400 animate-pulse animate-spin-slow" />
+                        <span>Create New from Scratch</span>
+                      </button>
+
+                      {resumeSource === 'uploaded' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleLoadDefault}
+                            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1 ${
+                              appTheme === 'bloom'
+                                ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            <FileEdit className="w-3 h-3" />
+                            <span>Load Default Profile</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={handleClearSavedResume}
+                            className="px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-500/10 text-[11px] font-semibold transition flex items-center justify-center gap-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete Custom Resume</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleLoadUploaded}
+                            disabled={!localStorage.getItem('ashish_resume_data')}
+                            className={`col-span-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 ${
+                              !localStorage.getItem('ashish_resume_data')
+                                ? 'opacity-40 cursor-not-allowed border-slate-300 text-slate-400'
+                                : appTheme === 'bloom'
+                                  ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+                                  : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
+                            }`}
+                          >
+                            <Save className="w-3 h-3" />
+                            <span>Switch to My Uploaded Resume</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Firebase Cloud Sync Control */}
+                  <div className={`p-3 rounded-lg border text-xs space-y-3 ${
+                    appTheme === 'bloom' ? 'bg-slate-50/55 border-slate-100' : 'bg-slate-950/40 border-slate-850'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-semibold ${appTheme === 'bloom' ? 'text-slate-600' : 'text-slate-400'}`}>Firebase Live Deployment</span>
+                      <span className={`flex items-center gap-1 text-[10px] font-semibold ${
+                        firebaseAvailable ? 'text-emerald-400' : 'text-amber-500'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${firebaseAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                        {firebaseAvailable ? 'Cloud Connected' : 'Local Storage Mode'}
+                      </span>
+                    </div>
+
+                    {!firebaseAvailable ? (
+                      <div className="space-y-2">
+                        <p className={`text-[11px] leading-relaxed ${appTheme === 'bloom' ? 'text-slate-500' : 'text-slate-400'}`}>
+                          Cloud database is ready for provisioning. Accept the database terms in the workspace Setup UI to enable server deployments and shareable URLs!
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => triggerNotification("Please complete Firebase Database setup in the platform UI first!")}
+                          className="w-full px-3 py-2 rounded-lg bg-indigo-600 text-white text-[11px] font-semibold shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-1.5"
+                        >
+                          <Cloud className="w-3.5 h-3.5" />
+                          <span>Provision Firebase Database</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className={`text-[11px] leading-relaxed ${appTheme === 'bloom' ? 'text-slate-500' : 'text-slate-400'}`}>
+                          Deploy your customized resume structure to Firebase Firestore to secure a unique production URL hosted on the server.
+                        </p>
+
+                        <div className="space-y-1.5">
+                          <label className={`block text-[10px] font-semibold uppercase ${appTheme === 'bloom' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Custom Link Slug / URL ID
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="e.g. lead-fullstack-dev"
+                              value={customShareId}
+                              onChange={(e) => setCustomShareId(e.target.value.toLowerCase().replace(/[^a-zA-Z0-9_\-]/g, ''))}
+                              className={`flex-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                                appTheme === 'bloom'
+                                  ? 'border-slate-200 text-slate-700 bg-white placeholder-slate-400'
+                                  : 'border-slate-850 text-slate-200 bg-slate-950 placeholder-slate-600'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleShareToCloud}
+                              disabled={sharingResume}
+                              className={`px-3 py-1.5 rounded-lg font-semibold text-xs text-white transition flex items-center gap-1 shadow-md ${
+                                themeButtonStyles[themeColor] || 'bg-indigo-600'
+                              } ${sharingResume ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+                            >
+                              {sharingResume ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Deploying...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="w-3.5 h-3.5" />
+                                  <span>Deploy to Server</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {shareUrl && (
+                          <div className={`p-2.5 rounded-lg border space-y-1.5 animate-fadeIn ${
+                            appTheme === 'bloom' ? 'bg-emerald-50/30 border-emerald-100' : 'bg-emerald-950/10 border-emerald-900/30'
+                          }`}>
+                            <span className="block text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live Server URL:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={shareUrl}
+                                className="flex-1 bg-transparent text-xs font-mono text-emerald-500 border-none outline-none focus:ring-0 p-0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(shareUrl);
+                                  triggerNotification("Copied shareable URL to clipboard!");
+                                }}
+                                className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20 transition"
+                              >
+                                Copy Link
+                              </button>
+                              <a
+                                href={shareUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Card 2: Interactive Resume Form controls */}
               <div className={`rounded-xl border transition-all duration-300 ${
                 appTheme === 'bloom'
@@ -669,6 +1501,7 @@ export default function App() {
                     fontStyle={fontStyle}
                     fontSize={fontSize}
                     fontColor={fontColor}
+                    enforceTwoPages={enforceTwoPages}
                   />
                 </div>
               </div>
@@ -684,6 +1517,7 @@ export default function App() {
             </div>
 
           </div>
+          </div>
         )}
       </main>
 
@@ -695,6 +1529,60 @@ export default function App() {
       }`}>
         <p>Ashish's AI Resume Suite &bull; Powered by Google Gemini 3.5 & Tesseract OCR</p>
       </footer>
+
+      {showAdGate && (
+        <AdDownloadGate 
+          onAdCompleted={handleExecuteDownload}
+          onCancel={() => setShowAdGate(false)}
+          appTheme={appTheme}
+        />
+      )}
+
+      {showScratchConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-md rounded-2xl p-6 border shadow-2xl transition-all duration-300 ${
+            appTheme === 'bloom'
+              ? 'bg-white border-rose-100 text-slate-800'
+              : 'bg-slate-900 border-slate-800 text-white'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-2.5 rounded-xl ${appTheme === 'bloom' ? 'bg-rose-50 text-rose-500' : 'bg-slate-950 text-indigo-400'}`}>
+                <Sparkles className="w-5 h-5 animate-pulse text-amber-400" />
+              </div>
+              <h3 className="text-base font-bold">Start from Scratch?</h3>
+            </div>
+            
+            <p className={`text-xs leading-relaxed mb-6 ${appTheme === 'bloom' ? 'text-slate-600' : 'text-slate-400'}`}>
+              Are you sure you want to create a new resume from scratch? This will initialize a clean, blank editor profile and won't affect any of your saved resumes in the archive.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowScratchConfirm(false)}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg border transition ${
+                  appTheme === 'bloom'
+                    ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    : 'bg-slate-950 border-slate-850 text-slate-400 hover:text-white'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeCreateFromScratch}
+                className={`px-4 py-2 text-xs font-semibold text-white rounded-lg transition ${
+                  appTheme === 'bloom'
+                    ? 'bg-rose-500 hover:bg-rose-600 shadow-md'
+                    : 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md'
+                }`}
+              >
+                Yes, Create Blank
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

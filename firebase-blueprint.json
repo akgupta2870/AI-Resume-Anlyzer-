@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Resume": {
+      "title": "Resume",
+      "description": "A structured resume containing all personal details, work experience, projects, skills, and academic history.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the resume doc."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner of this resume, or anonymous session ID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the resume."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "personalInformation": {
+          "type": "object",
+          "description": "Full personal and contact info."
+        },
+        "professionalSummary": {
+          "type": "string",
+          "description": "Brief professional summary statement."
+        },
+        "skills": {
+          "type": "object",
+          "description": "Grouped listing of core skills."
+        },
+        "experience": {
+          "type": "array",
+          "description": "Work history list."
+        },
+        "projects": {
+          "type": "array",
+          "description": "Personal or professional projects listing."
+        },
+        "education": {
+          "type": "array",
+          "description": "Academic degrees and institutions."
+        },
+        "certifications": {
+          "type": "array",
+          "description": "Professional certifications."
+        },
+        "achievements": {
+          "type": "array",
+          "description": "Notable achievements or awards."
+        },
+        "languagesKnown": {
+          "type": "array",
+          "description": "Known languages and proficiency."
+        },
+        "interests": {
+          "type": "array",
+          "description": "Extracurricular interests."
+        },
+        "references": {
+          "type": "array",
+          "description": "Professional references."
+        }
+      },
+      "required": ["id", "createdAt", "updatedAt", "personalInformation"]
+    }
+  },
+  "firestore": {
+    "/shared_resumes/{resumeId}": {
+      "schema": "Resume",
+      "description": "Shared resumes stored in Firebase for robust server deployment."
+    },
+    "/user_resumes/{recordId}": {
+      "schema": "Resume",
+      "description": "Automatically synced user resume records for business monitoring."
+    }
+  }
+}

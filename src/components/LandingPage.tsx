@@ -1,14 +1,26 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, AlertCircle, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Sparkles, Loader2, Image as ImageIcon, Trash2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LandingPageProps {
   onParsed: (data: any, originalText: string) => void;
   onSelectDefault: () => void;
+  onCreateScratch: () => void;
   appTheme?: 'dark' | 'bloom';
+  archivedResumes?: any[];
+  onLoadArchived?: (id: string, format: 'uploaded' | 'updated') => void;
+  onDeleteArchived?: (id: string, e: React.MouseEvent) => void;
 }
 
-export default function LandingPage({ onParsed, onSelectDefault, appTheme = 'dark' }: LandingPageProps) {
+export default function LandingPage({ 
+  onParsed, 
+  onSelectDefault, 
+  onCreateScratch, 
+  appTheme = 'dark',
+  archivedResumes = [],
+  onLoadArchived,
+  onDeleteArchived
+}: LandingPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [statusText, setStatusText] = useState('');
@@ -231,7 +243,7 @@ export default function LandingPage({ onParsed, onSelectDefault, appTheme = 'dar
           <span>Ashish's Generative AI-Powered ATS Resume Suite</span>
         </div>
         <h1 className={`font-display text-4xl md:text-5xl font-bold tracking-tight mb-4 transition-colors duration-300 ${
-          isBloom ? 'text-indigo-850' : 'text-white'
+          isBloom ? 'text-indigo-950' : 'text-white'
         }`}>
           Ashish's AI Resume PDF <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-purple-500 to-pink-500">Analyzer & Editor</span>
         </h1>
@@ -282,20 +294,247 @@ export default function LandingPage({ onParsed, onSelectDefault, appTheme = 'dar
       </div>
 
       {/* Default / Test Resume option */}
-      <div className="mt-6 flex justify-center gap-4">
+      <div className="mt-6 flex flex-wrap justify-center gap-4">
         <button
           id="btn-use-default"
           onClick={onSelectDefault}
-          className={`flex items-center gap-2 px-5 py-2.5 font-medium text-sm rounded-xl border transition-all duration-300 ${
+          className={`flex items-center gap-2 px-5 py-2.5 font-semibold text-sm rounded-xl border transition-all duration-300 ${
             isBloom
               ? 'bg-white hover:bg-rose-50/30 text-slate-700 border-slate-200 hover:border-rose-200 shadow-sm'
               : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-850 hover:border-slate-700'
           }`}
         >
           <FileText className="w-4 h-4 text-emerald-500" />
-          <span>Load Ashish's Predefined Tech Resume</span>
+          <span>Load Predefined Profile</span>
+        </button>
+
+        <button
+          id="btn-create-scratch"
+          onClick={onCreateScratch}
+          className={`flex items-center gap-2 px-5 py-2.5 font-semibold text-sm rounded-xl border transition-all duration-300 ${
+            isBloom
+              ? 'bg-rose-500 hover:bg-rose-600 text-white border-transparent shadow-md hover:scale-105 active:scale-95'
+              : 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white border-transparent shadow-md hover:scale-105 active:scale-95'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+          <span>Create from Scratch (Blank)</span>
         </button>
       </div>
+
+      {/* Elegant, User-Friendly AI-ATS Feature Marketing Showcase */}
+      <div className={`mt-14 mb-10 rounded-2xl p-8 border transition-all duration-300 text-left ${
+        isBloom
+          ? 'bg-gradient-to-br from-white via-rose-50/10 to-rose-50/30 border-rose-100 shadow-xl shadow-rose-100/15'
+          : 'bg-slate-900/20 border border-slate-850'
+      }`}>
+        <div className="text-center md:text-left mb-6 border-b pb-4 border-dashed border-slate-200/60 dark:border-slate-800">
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-2 text-[10px] font-bold tracking-wider uppercase ${
+            isBloom ? 'bg-rose-50 text-rose-600' : 'bg-slate-950 text-indigo-400'
+          }`}>
+            <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+            <span>Interactive Process Engine</span>
+          </div>
+          <h2 className={`text-xl md:text-2xl font-bold tracking-tight ${isBloom ? 'text-indigo-950' : 'text-white'}`}>
+            How It Works — Fast, Easy & High-Impact
+          </h2>
+          <p className={`text-xs mt-1 ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>
+            Get hired faster with our continuous ATS scoring loop and automated smart revisions. No technical skills required.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* STEP 1 */}
+          <div className={`p-5 rounded-xl border flex flex-col justify-between transition-all duration-300 ${
+            isBloom
+              ? 'bg-white hover:bg-rose-50/10 border-slate-100 hover:border-rose-200 hover:shadow-md'
+              : 'bg-slate-950/40 border border-slate-850'
+          }`}>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-2.5 rounded-lg font-bold text-xs ${
+                  isBloom ? 'bg-rose-50 text-rose-500' : 'bg-slate-950 text-indigo-400'
+                }`}>
+                  01 / DROP
+                </div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  isBloom ? 'bg-amber-50 text-amber-500' : 'bg-amber-950/30 text-amber-400'
+                }`}>
+                  <Upload className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className={`text-sm font-bold mb-1.5 ${isBloom ? 'text-slate-800' : 'text-white'}`}>
+                1. Just Drop & Parse
+              </h3>
+              <p className={`text-xs leading-relaxed ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>
+                Drag and drop your PDF or Image resume. Our built-in Gemini 3.5 AI instantly reads, structures, and transcribes everything into tidy interactive forms.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-dashed border-slate-100 dark:border-slate-800/60 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span className={`text-[10px] font-mono font-medium ${isBloom ? 'text-slate-400' : 'text-slate-500'}`}>
+                Supports Scanned & Digital
+              </span>
+            </div>
+          </div>
+
+          {/* STEP 2 */}
+          <div className={`p-5 rounded-xl border flex flex-col justify-between transition-all duration-300 ${
+            isBloom
+              ? 'bg-white hover:bg-rose-50/10 border-slate-100 hover:border-rose-200 hover:shadow-md'
+              : 'bg-slate-950/40 border border-slate-850'
+          }`}>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-2.5 rounded-lg font-bold text-xs ${
+                  isBloom ? 'bg-rose-50 text-rose-500' : 'bg-slate-950 text-indigo-400'
+                }`}>
+                  02 / EDIT
+                </div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  isBloom ? 'bg-rose-50 text-rose-500' : 'bg-rose-950/30 text-rose-400'
+                }`}>
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                </div>
+              </div>
+              <h3 className={`text-sm font-bold mb-1.5 ${isBloom ? 'text-slate-800' : 'text-white'}`}>
+                2. AI-Powered Edit
+              </h3>
+              <p className={`text-xs leading-relaxed ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>
+                Modify fields with continuous real-time suggestions. Revise job bullet points, generate matching core skills, or rewrite summaries to be metrics-driven with 1-click.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-dashed border-slate-100 dark:border-slate-800/60 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              <span className={`text-[10px] font-mono font-medium ${isBloom ? 'text-slate-400' : 'text-slate-500'}`}>
+                Career Coach Suggested
+              </span>
+            </div>
+          </div>
+
+          {/* STEP 3 */}
+          <div className={`p-5 rounded-xl border flex flex-col justify-between transition-all duration-300 ${
+            isBloom
+              ? 'bg-white hover:bg-rose-50/10 border-slate-100 hover:border-rose-200 hover:shadow-md'
+              : 'bg-slate-950/40 border border-slate-850'
+          }`}>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-2.5 rounded-lg font-bold text-xs ${
+                  isBloom ? 'bg-rose-50 text-rose-500' : 'bg-slate-950 text-indigo-400'
+                }`}>
+                  03 / DOWNLOAD
+                </div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  isBloom ? 'bg-emerald-50 text-emerald-500' : 'bg-emerald-950/30 text-emerald-400'
+                }`}>
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className={`text-sm font-bold mb-1.5 ${isBloom ? 'text-slate-800' : 'text-white'}`}>
+                3. ATS Score & Export
+              </h3>
+              <p className={`text-xs leading-relaxed ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>
+                Check your live ATS compatibility score. Compare against specific job descriptions, pick a high-contrast elegant template, and instantly download a beautiful, PDF.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-dashed border-slate-100 dark:border-slate-800/60 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span className={`text-[10px] font-mono font-medium ${isBloom ? 'text-slate-400' : 'text-slate-500'}`}>
+                98% Compatibility Rate
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Saved Resumes Archive History */}
+      {archivedResumes && archivedResumes.length > 0 && (
+        <div className={`mt-10 rounded-2xl p-6 border transition-all duration-300 text-left ${
+          isBloom
+            ? 'bg-white border-rose-100 shadow-xl shadow-rose-100/10'
+            : 'bg-slate-900/40 border border-slate-800/80 shadow-2xl'
+        }`}>
+          <div className="flex items-center justify-between mb-4 border-b pb-2 border-dashed border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className={`p-2 rounded-lg ${isBloom ? 'bg-rose-50 text-rose-500' : 'bg-slate-950 text-indigo-400'}`}>
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className={`text-base font-bold ${isBloom ? 'text-slate-800' : 'text-white'}`}>
+                  Saved Resumes Archive ({archivedResumes.length})
+                </h3>
+                <p className={`text-xs ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>
+                  Compare or load either your original uploaded format or your updated/edited format.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-1">
+            {archivedResumes.map((resume) => (
+              <div
+                key={resume.id}
+                className={`p-4 rounded-xl border flex flex-col justify-between transition-all duration-300 ${
+                  isBloom
+                    ? 'bg-rose-50/15 border-slate-100 hover:border-rose-200 hover:bg-rose-50/30 shadow-sm'
+                    : 'bg-slate-950/40 border border-slate-850 hover:border-slate-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <span className={`text-sm font-bold truncate ${isBloom ? 'text-slate-800' : 'text-white'}`}>
+                      {resume.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => onDeleteArchived?.(resume.id, e)}
+                      className="text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-500/10 transition shrink-0"
+                      title="Delete resume from history"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className={`text-[10px] font-mono mb-3 flex items-center gap-1.5 ${
+                    isBloom ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Saved: {new Date(resume.timestamp).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => onLoadArchived?.(resume.id, 'uploaded')}
+                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 transition ${
+                      isBloom
+                        ? 'bg-white border-slate-200 text-slate-700 hover:bg-rose-50/40 hover:border-rose-200'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <RotateCcw className="w-3 h-3 text-indigo-400" />
+                    <span>Upload Format</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onLoadArchived?.(resume.id, 'updated')}
+                    className={`px-2.5 py-1.5 rounded-lg text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition shadow-sm ${
+                      isBloom
+                        ? 'bg-rose-500 hover:bg-rose-600'
+                        : 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3 h-3 text-amber-300" />
+                    <span>Updated Format</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Progress & Processing States */}
       {progress !== null && (

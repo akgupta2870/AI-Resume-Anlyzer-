@@ -157,3 +157,14 @@ export interface Message {
   content: string;
   timestamp: string;
 }
+
+export interface ArchivedResume {
+  id: string;
+  name: string;
+  timestamp: string;
+  originalText: string;
+  uploadedFormat: ResumeData;
+  updatedFormat: ResumeData;
+  profession?: string;
+}
+
