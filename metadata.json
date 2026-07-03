@@ -1,6 +1,6 @@
 {
-  "name": "AI Resume PDF Analyzer & Editor",
-  "description": "Upload any resume PDF, intelligently parse the sections into editable forms, optimize for ATS compliance, and export professional layouts.",
+  "name": "Ashish's AI Resume Architect",
+  "description": "Upload any resume PDF or image, intelligently parse it with Gemini 3.5, customize with beautiful real-time theme controls, and export ATS-optimized layouts.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

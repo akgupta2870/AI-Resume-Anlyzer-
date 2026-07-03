@@ -1,14 +1,163 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ResumeData } from '../types.ts';
 import { Mail, Phone, MapPin, Linkedin, Github, Globe } from 'lucide-react';
 
 interface ResumePreviewProps {
   data: ResumeData;
   templateId: string; // 'modern' | 'professional' | 'minimal' | 'creative' | 'corporate' | 'ats'
+  themeColor?: string; // 'indigo' | 'emerald' | 'rose' | 'amber' | 'slate' | 'violet'
+  fontStyle?: string;  // 'sans' | 'serif' | 'mono' | 'editorial' | 'modern-grotesk'
+  fontSize?: string;   // 'small' | 'medium' | 'large'
+  fontColor?: string;  // hex color
 }
 
-export default function ResumePreview({ data, templateId }: ResumePreviewProps) {
+export default function ResumePreview({ 
+  data, 
+  templateId, 
+  themeColor = 'indigo',
+  fontStyle = 'sans',
+  fontSize = 'medium',
+  fontColor = '#1e293b'
+}: ResumePreviewProps) {
   const { personalInformation: info, professionalSummary: summary, skills, experience, projects, education } = data;
+
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (previewRef.current) {
+      // Find all text elements to clean and convert bold/italic tags
+      const textElements = previewRef.current.querySelectorAll('p, li');
+      textElements.forEach(el => {
+        let content = el.innerHTML;
+        
+        // Only convert if there are tags or markdown sequences
+        if (
+          content.includes('&lt;') || 
+          content.includes('<') ||
+          content.includes('**') || 
+          content.includes('*')
+        ) {
+          // Temporarily unescape safe tags
+          let parsed = content
+            .replace(/&lt;b&gt;/gi, '<strong>')
+            .replace(/&lt;\/b&gt;/gi, '</strong>')
+            .replace(/&lt;strong&gt;/gi, '<strong>')
+            .replace(/&lt;\/strong&gt;/gi, '</strong>')
+            .replace(/&lt;i&gt;/gi, '<em>')
+            .replace(/&lt;\/i&gt;/gi, '</em>')
+            .replace(/&lt;em&gt;/gi, '<em>')
+            .replace(/&lt;\/em&gt;/gi, '</em>')
+            .replace(/&lt;u&gt;/gi, '<span class="underline">')
+            .replace(/&lt;\/u&gt;/gi, '</span>')
+            .replace(/&lt;span style=&quot;(.*?)&quot;&gt;/gi, '<span style="$1">')
+            .replace(/&lt;span style="(.*?)"&gt;/gi, '<span style="$1">')
+            .replace(/&lt;\/span&gt;/gi, '</span>');
+
+          // Convert Markdown formats
+          parsed = parsed
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+          el.innerHTML = parsed;
+        }
+      });
+    }
+  }, [data, templateId, themeColor, fontStyle, fontSize, fontColor]);
+
+  const colors: Record<string, {
+    primaryText: string;
+    secondaryText: string;
+    heavyText: string;
+    primaryBg: string;
+    lightBg: string;
+    primaryBorder: string;
+    lightBorder: string;
+    mediumBorder: string;
+    thickBorder: string;
+    linkText: string;
+    badgeText: string;
+  }> = {
+    indigo: {
+      primaryText: 'text-indigo-600',
+      secondaryText: 'text-indigo-500',
+      heavyText: 'text-indigo-950',
+      primaryBg: 'bg-indigo-500',
+      lightBg: 'bg-indigo-50',
+      primaryBorder: 'border-indigo-600',
+      lightBorder: 'border-indigo-100',
+      mediumBorder: 'border-indigo-200',
+      thickBorder: 'border-l-indigo-600',
+      linkText: 'text-indigo-400',
+      badgeText: 'text-indigo-700 bg-indigo-50'
+    },
+    emerald: {
+      primaryText: 'text-emerald-600',
+      secondaryText: 'text-emerald-500',
+      heavyText: 'text-emerald-950',
+      primaryBg: 'bg-emerald-500',
+      lightBg: 'bg-emerald-50',
+      primaryBorder: 'border-emerald-600',
+      lightBorder: 'border-emerald-100',
+      mediumBorder: 'border-emerald-200',
+      thickBorder: 'border-l-emerald-600',
+      linkText: 'text-emerald-400',
+      badgeText: 'text-emerald-700 bg-emerald-50'
+    },
+    rose: {
+      primaryText: 'text-rose-600',
+      secondaryText: 'text-rose-500',
+      heavyText: 'text-rose-950',
+      primaryBg: 'bg-rose-500',
+      lightBg: 'bg-rose-50',
+      primaryBorder: 'border-rose-600',
+      lightBorder: 'border-rose-100',
+      mediumBorder: 'border-rose-200',
+      thickBorder: 'border-l-rose-600',
+      linkText: 'text-rose-400',
+      badgeText: 'text-rose-700 bg-rose-50'
+    },
+    amber: {
+      primaryText: 'text-amber-600',
+      secondaryText: 'text-amber-500',
+      heavyText: 'text-amber-950',
+      primaryBg: 'bg-amber-500',
+      lightBg: 'bg-amber-50',
+      primaryBorder: 'border-amber-600',
+      lightBorder: 'border-amber-100',
+      mediumBorder: 'border-amber-200',
+      thickBorder: 'border-l-amber-600',
+      linkText: 'text-amber-400',
+      badgeText: 'text-amber-700 bg-amber-50'
+    },
+    slate: {
+      primaryText: 'text-slate-600',
+      secondaryText: 'text-slate-500',
+      heavyText: 'text-slate-900',
+      primaryBg: 'bg-slate-500',
+      lightBg: 'bg-slate-50',
+      primaryBorder: 'border-slate-600',
+      lightBorder: 'border-slate-100',
+      mediumBorder: 'border-slate-200',
+      thickBorder: 'border-l-slate-600',
+      linkText: 'text-slate-500',
+      badgeText: 'text-slate-700 bg-slate-50'
+    },
+    violet: {
+      primaryText: 'text-violet-600',
+      secondaryText: 'text-violet-500',
+      heavyText: 'text-violet-950',
+      primaryBg: 'bg-violet-500',
+      lightBg: 'bg-violet-50',
+      primaryBorder: 'border-violet-600',
+      lightBorder: 'border-violet-100',
+      mediumBorder: 'border-violet-200',
+      thickBorder: 'border-l-violet-600',
+      linkText: 'text-violet-400',
+      badgeText: 'text-violet-700 bg-violet-50'
+    }
+  };
+
+  const activeTheme = colors[themeColor] || colors.indigo;
 
   // Render social/contact chips safely
   const renderContactItem = (icon: React.ReactNode, value: string, linkPrefix?: string) => {
@@ -18,7 +167,7 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
       <div className="flex items-center gap-1.5 text-xs">
         <span className="shrink-0 text-slate-500 no-print">{icon}</span>
         {isLink ? (
-          <a href={`${linkPrefix}${value}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-indigo-400 print:text-black">
+          <a href={`${linkPrefix}${value}`} target="_blank" rel="noopener noreferrer" className={`hover:underline ${activeTheme.primaryText} print:text-black`}>
             {value}
           </a>
         ) : (
@@ -36,7 +185,7 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
         <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900 mb-2 uppercase">
           {info.fullName}
         </h1>
-        <p className="text-indigo-600 font-semibold text-xs uppercase tracking-wider mb-3">
+        <p className={`${activeTheme.primaryText} font-semibold text-xs uppercase tracking-wider mb-3`}>
           {experience[0]?.designation || "Solutions Engineer / Architect"}
         </p>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs">
@@ -69,7 +218,7 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
                 {experience.map((exp, idx) => (
                   <div key={idx} className="text-xs">
                     <div className="flex justify-between items-start font-semibold text-slate-900">
-                      <span>{exp.designation} <span className="text-indigo-600 font-medium">@ {exp.company}</span></span>
+                      <span>{exp.designation} <span className={`${activeTheme.primaryText} font-medium`}>@ {exp.company}</span></span>
                       <span className="text-[10px] font-mono text-slate-500 shrink-0">{exp.startDate} - {exp.endDate}</span>
                     </div>
                     <div className="text-[10px] text-slate-500 font-medium italic mb-1.5">{exp.location}</div>
@@ -97,8 +246,8 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
                     <div className="flex justify-between items-baseline font-semibold text-slate-900">
                       <span>{proj.title}</span>
                       <div className="flex gap-2 text-[10px] font-mono">
-                        {proj.github && <a href={`https://${proj.github}`} target="_blank" className="text-indigo-600">Repo</a>}
-                        {proj.liveDemo && <a href={`https://${proj.liveDemo}`} target="_blank" className="text-indigo-600">Demo</a>}
+                        {proj.github && <a href={`https://${proj.github}`} target="_blank" className={`${activeTheme.primaryText}`}>Repo</a>}
+                        {proj.liveDemo && <a href={`https://${proj.liveDemo}`} target="_blank" className={`${activeTheme.primaryText}`}>Demo</a>}
                       </div>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-1 leading-relaxed">{proj.description}</p>
@@ -169,17 +318,17 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
       {/* Name and Header block with sidebar accent */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div className="md:col-span-3">
-          <h1 className="font-display text-4xl font-extrabold tracking-tight text-indigo-950 mb-1">
+          <h1 className={`font-display text-4xl font-extrabold tracking-tight ${activeTheme.heavyText} mb-1`}>
             {info.fullName}
           </h1>
-          <p className="text-indigo-600 font-bold text-sm tracking-wider uppercase mb-3">
+          <p className={`${activeTheme.primaryText} font-bold text-sm tracking-wider uppercase mb-3`}>
             {experience[0]?.designation || "Solutions Specialist"}
           </p>
           <p className="text-slate-600 text-xs leading-relaxed pr-2">{summary}</p>
         </div>
         
         <div className="md:col-span-1 bg-slate-50 p-4 border border-slate-200/50 rounded-lg space-y-2">
-          <h4 className="text-indigo-950 font-bold text-xs uppercase border-b border-indigo-200 pb-1">Contact</h4>
+          <h4 className={`${activeTheme.heavyText} font-bold text-xs uppercase border-b ${activeTheme.mediumBorder} pb-1`}>Contact</h4>
           <div className="text-[11px] text-slate-700 space-y-1.5 break-all">
             <div className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-slate-500" /> <span>{info.email}</span></div>
             <div className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-500" /> <span>{info.phone}</span></div>
@@ -193,8 +342,8 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
       {/* Main Core Columns */}
       <div className="space-y-6">
         {/* Core Skills section */}
-        <div className="bg-indigo-950/5 p-4 rounded-lg border border-indigo-950/10">
-          <h3 className="font-display text-xs font-bold uppercase tracking-wider text-indigo-950 mb-3">
+        <div className={`p-4 rounded-lg border border-slate-100 ${activeTheme.lightBg}`}>
+          <h3 className={`font-display text-xs font-bold uppercase tracking-wider ${activeTheme.heavyText} mb-3`}>
             Expertise & Core Competencies
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px]">
@@ -212,17 +361,17 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
 
         {/* Professional Experience */}
         <div>
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-indigo-950 border-b-2 border-indigo-950/30 pb-1 mb-4">
+          <h3 className={`font-display text-sm font-bold uppercase tracking-wider ${activeTheme.heavyText} border-b-2 ${activeTheme.mediumBorder} pb-1 mb-4`}>
             Professional Experience
           </h3>
           <div className="space-y-5">
             {experience.map((exp, idx) => (
               <div key={idx} className="text-xs">
-                <div className="flex justify-between items-baseline font-bold text-indigo-950 text-[13px]">
+                <div className={`flex justify-between items-baseline font-bold ${activeTheme.heavyText} text-[13px]`}>
                   <span>{exp.designation} <span className="text-slate-500 font-normal">| {exp.company}</span></span>
                   <span className="text-[10px] font-mono text-slate-500">{exp.startDate} - {exp.endDate}</span>
                 </div>
-                <div className="text-[10px] text-indigo-600 font-semibold mb-2">{exp.location}</div>
+                <div className={`text-[10px] ${activeTheme.primaryText} font-semibold mb-2`}>{exp.location}</div>
                 <ul className="list-disc pl-4 space-y-1.5 text-slate-700 text-[11px]">
                   {exp.responsibilities.map((resp, rIdx) => (
                     <li key={rIdx}>{resp}</li>
@@ -236,21 +385,21 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
         {/* Education & Qualifications */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-indigo-950 border-b border-indigo-200 pb-1 mb-3">
+            <h3 className={`font-display text-xs font-bold uppercase tracking-wider ${activeTheme.heavyText} border-b ${activeTheme.mediumBorder} pb-1 mb-3`}>
               Academic Background
             </h3>
             {education.map((edu, idx) => (
               <div key={idx} className="text-[11px] mb-2">
                 <div className="font-bold text-slate-800">{edu.degree}</div>
                 <div className="text-slate-600">{edu.college} ({edu.year})</div>
-                <div className="text-[10px] text-indigo-600 font-semibold mt-0.5">GPA: {edu.cgpa}</div>
+                <div className={`text-[10px] ${activeTheme.primaryText} font-semibold mt-0.5`}>GPA: {edu.cgpa}</div>
               </div>
             ))}
           </div>
 
           {data.certifications.length > 0 && (
             <div>
-              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-indigo-950 border-b border-indigo-200 pb-1 mb-3">
+              <h3 className={`font-display text-xs font-bold uppercase tracking-wider ${activeTheme.heavyText} border-b ${activeTheme.mediumBorder} pb-1 mb-3`}>
                 Key Certifications
               </h3>
               <ul className="list-disc pl-4 text-slate-600 text-[11px] space-y-1">
@@ -357,12 +506,12 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
 
   // --- TEMPLATE 4: Creative Designer (Accent borders, left display rule) ---
   const renderCreative = () => (
-    <div className="p-8 font-sans bg-white text-slate-900 border-l-[10px] border-l-indigo-600 border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left">
+    <div className={`p-8 font-sans bg-white text-slate-900 border-l-[10px] ${activeTheme.primaryBorder} border border-slate-100 shadow-sm leading-relaxed max-w-[21cm] min-h-[29.7cm] mx-auto text-left`}>
       <div className="mb-6">
-        <h1 className="font-display text-4xl font-black text-indigo-900 mb-1 uppercase tracking-tight">
+        <h1 className={`font-display text-4xl font-black ${activeTheme.heavyText} mb-1 uppercase tracking-tight`}>
           {info.fullName}
         </h1>
-        <div className="w-16 h-1.5 bg-indigo-500 mb-4 rounded-full"></div>
+        <div className={`w-16 h-1.5 ${activeTheme.primaryBg} mb-4 rounded-full`}></div>
         
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-slate-600">
           <span>{info.email}</span>
@@ -373,29 +522,29 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
           {info.portfolio && (
             <>
               <span>|</span>
-              <span className="text-indigo-600">{info.portfolio}</span>
+              <span className={`${activeTheme.primaryText}`}>{info.portfolio}</span>
             </>
           )}
         </div>
       </div>
 
-      <p className="text-slate-700 text-xs mb-6 bg-indigo-50 border border-indigo-100 p-4 rounded-xl leading-relaxed">
+      <p className={`text-slate-700 text-xs mb-6 ${activeTheme.lightBg} border ${activeTheme.lightBorder} p-4 rounded-xl leading-relaxed`}>
         {summary}
       </p>
 
       <div className="space-y-6">
         {/* Experience */}
         <div>
-          <h3 className="font-display text-sm font-bold text-indigo-900 mb-3 flex items-center gap-2 uppercase tracking-wider">
-            <span className="w-1.5 h-4 bg-indigo-500 rounded-sm"></span> Experience Timeline
+          <h3 className={`font-display text-sm font-bold ${activeTheme.heavyText} mb-3 flex items-center gap-2 uppercase tracking-wider`}>
+            <span className={`w-1.5 h-4 ${activeTheme.primaryBg} rounded-sm`}></span> Experience Timeline
           </h3>
           <div className="space-y-4">
             {experience.map((exp, idx) => (
-              <div key={idx} className="text-xs border-l border-indigo-100 pl-4 relative ml-1">
-                <span className="absolute w-2.5 h-2.5 bg-indigo-500 rounded-full border-2 border-white -left-[5px] top-1"></span>
+              <div key={idx} className={`text-xs border-l ${activeTheme.lightBorder} pl-4 relative ml-1`}>
+                <span className={`absolute w-2.5 h-2.5 ${activeTheme.primaryBg} rounded-full border-2 border-white -left-[5px] top-1`}></span>
                 <div className="flex justify-between font-bold text-slate-950">
-                  <span>{exp.designation} @ <span className="text-indigo-600">{exp.company}</span></span>
-                  <span className="text-[10px] text-indigo-500 font-mono">{exp.startDate} - {exp.endDate}</span>
+                  <span>{exp.designation} @ <span className={`${activeTheme.primaryText}`}>{exp.company}</span></span>
+                  <span className={`text-[10px] ${activeTheme.secondaryText} font-mono`}>{exp.startDate} - {exp.endDate}</span>
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium mb-1.5">{exp.location}</div>
                 <ul className="list-disc pl-4 text-slate-600 text-[11px] space-y-1">
@@ -408,14 +557,14 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
 
         {/* Skills as badges */}
         <div>
-          <h3 className="font-display text-sm font-bold text-indigo-900 mb-3 flex items-center gap-2 uppercase tracking-wider">
-            <span className="w-1.5 h-4 bg-indigo-500 rounded-sm"></span> Key Specializations
+          <h3 className={`font-display text-sm font-bold ${activeTheme.heavyText} mb-3 flex items-center gap-2 uppercase tracking-wider`}>
+            <span className={`w-1.5 h-4 ${activeTheme.primaryBg} rounded-sm`}></span> Key Specializations
           </h3>
           <div className="flex flex-wrap gap-2">
             {Object.values(skills).flat().map((skill, index) => {
               if (!skill) return null;
               return (
-                <span key={index} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-semibold">
+                <span key={index} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${activeTheme.badgeText}`}>
                   {skill}
                 </span>
               );
@@ -425,15 +574,15 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
 
         {/* Education */}
         <div>
-          <h3 className="font-display text-sm font-bold text-indigo-900 mb-3 flex items-center gap-2 uppercase tracking-wider">
-            <span className="w-1.5 h-4 bg-indigo-500 rounded-sm"></span> Academic Background
+          <h3 className={`font-display text-sm font-bold ${activeTheme.heavyText} mb-3 flex items-center gap-2 uppercase tracking-wider`}>
+            <span className={`w-1.5 h-4 ${activeTheme.primaryBg} rounded-sm`}></span> Academic Background
           </h3>
           <div className="space-y-2">
             {education.map((edu, idx) => (
               <div key={idx} className="text-xs p-3 bg-slate-50 border border-slate-100 rounded-lg">
                 <div className="font-bold text-slate-900">{edu.degree}</div>
                 <div className="text-slate-500">{edu.college} | CGPA: {edu.cgpa}</div>
-                <div className="text-[10px] font-mono text-indigo-600 mt-0.5">{edu.year}</div>
+                <div className={`text-[10px] font-mono ${activeTheme.primaryText} mt-0.5`}>{edu.year}</div>
               </div>
             ))}
           </div>
@@ -609,19 +758,78 @@ export default function ResumePreview({ data, templateId }: ResumePreviewProps) 
     </div>
   );
 
+  const fontFamilies: Record<string, string> = {
+    sans: "'Inter', system-ui, -apple-system, sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    mono: "ui-monospace, 'JetBrains Mono', 'Fira Code', monospace",
+    editorial: "'Playfair Display', Lora, Georgia, serif",
+    'modern-grotesk': "Outfit, 'Space Grotesk', sans-serif"
+  };
+
+  const selectedFontFamily = fontFamilies[fontStyle] || fontFamilies.sans;
+  
+  const sizeStyles: Record<string, string> = {
+    small: '11px',
+    medium: '12.5px',
+    large: '14px'
+  };
+  const selectedFontSize = sizeStyles[fontSize] || sizeStyles.medium;
+
+  const renderWithStyles = (element: React.ReactElement) => {
+    return (
+      <div 
+        ref={previewRef}
+        className="resume-styled-wrapper w-full"
+        style={{
+          fontFamily: selectedFontFamily,
+          fontSize: selectedFontSize,
+        }}
+      >
+        <style dangerouslySetInnerHTML={{ __html: `
+          .resume-styled-wrapper,
+          .resume-styled-wrapper p, 
+          .resume-styled-wrapper li, 
+          .resume-styled-wrapper span, 
+          .resume-styled-wrapper h1,
+          .resume-styled-wrapper h2,
+          .resume-styled-wrapper h3,
+          .resume-styled-wrapper h4,
+          .resume-styled-wrapper div {
+            font-family: ${selectedFontFamily} !important;
+          }
+          .resume-styled-wrapper p,
+          .resume-styled-wrapper li {
+            font-size: ${selectedFontSize} !important;
+            color: ${fontColor} !important;
+          }
+        ` }} />
+        {element}
+      </div>
+    );
+  };
+
+  let renderedElement: React.ReactElement;
   switch (templateId) {
     case 'professional':
-      return renderProfessional();
+      renderedElement = renderProfessional();
+      break;
     case 'minimal':
-      return renderMinimal();
+      renderedElement = renderMinimal();
+      break;
     case 'creative':
-      return renderCreative();
+      renderedElement = renderCreative();
+      break;
     case 'corporate':
-      return renderCorporate();
+      renderedElement = renderCorporate();
+      break;
     case 'ats':
-      return renderATS();
+      renderedElement = renderATS();
+      break;
     case 'modern':
     default:
-      return renderModern();
+      renderedElement = renderModern();
+      break;
   }
+
+  return renderWithStyles(renderedElement);
 }

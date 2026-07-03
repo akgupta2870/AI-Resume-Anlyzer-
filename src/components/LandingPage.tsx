@@ -5,9 +5,10 @@ import { motion } from 'motion/react';
 interface LandingPageProps {
   onParsed: (data: any, originalText: string) => void;
   onSelectDefault: () => void;
+  appTheme?: 'dark' | 'bloom';
 }
 
-export default function LandingPage({ onParsed, onSelectDefault }: LandingPageProps) {
+export default function LandingPage({ onParsed, onSelectDefault, appTheme = 'dark' }: LandingPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [statusText, setStatusText] = useState('');
@@ -215,19 +216,29 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
     }
   };
 
+  const isBloom = appTheme === 'bloom';
+
   return (
     <div id="landing-page-card" className="max-w-4xl mx-auto py-12 px-4">
       {/* Title section */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 text-xs text-indigo-400 font-mono rounded-full mb-4">
+        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4 text-xs font-mono transition-colors duration-300 ${
+          isBloom
+            ? 'bg-rose-50 border border-rose-100 text-rose-500'
+            : 'bg-slate-900 border border-slate-800 text-indigo-400'
+        }`}>
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Generative AI-Powered ATS Resume System</span>
+          <span>Ashish's Generative AI-Powered ATS Resume Suite</span>
         </div>
-        <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">
-          AI Resume PDF <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Analyzer & Editor</span>
+        <h1 className={`font-display text-4xl md:text-5xl font-bold tracking-tight mb-4 transition-colors duration-300 ${
+          isBloom ? 'text-indigo-850' : 'text-white'
+        }`}>
+          Ashish's AI Resume PDF <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-purple-500 to-pink-500">Analyzer & Editor</span>
         </h1>
-        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          Upload any existing resume PDF or image. Our system extracts every details with Gemini 3.5 Flash, converts it into interactive form controls, and outputs an ATS-optimized professional resume.
+        <p className={`text-lg max-w-2xl mx-auto transition-colors duration-300 ${
+          isBloom ? 'text-slate-600' : 'text-slate-400'
+        }`}>
+          Upload any existing resume PDF or image. Our system extracts every detail with Gemini 3.5 Flash, converts it into interactive form controls, and outputs an ATS-optimized professional resume.
         </p>
       </div>
 
@@ -238,10 +249,14 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={triggerFileInput}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 ${
           isDragging 
-            ? 'border-indigo-400 bg-indigo-950/20 shadow-[0_0_20px_rgba(99,102,241,0.15)]' 
-            : 'border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900/60'
+            ? isBloom
+              ? 'border-rose-400 bg-rose-50/40 shadow-[0_0_20px_rgba(244,63,94,0.15)]'
+              : 'border-indigo-400 bg-indigo-950/20 shadow-[0_0_20px_rgba(99,102,241,0.15)]' 
+            : isBloom
+              ? 'border-rose-100/80 hover:border-rose-350 bg-white hover:bg-rose-50/10 shadow-lg shadow-rose-100/10'
+              : 'border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900/60'
         }`}
       >
         <input
@@ -253,12 +268,16 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
         />
 
         <div className="flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center mb-6 shadow-md">
-            <Upload className="w-8 h-8 text-indigo-400" />
+          <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-6 shadow-md border transition-all duration-300 ${
+            isBloom
+              ? 'bg-rose-50/60 border-rose-100 text-rose-500'
+              : 'bg-slate-950 border-slate-800 text-indigo-400'
+          }`}>
+            <Upload className="w-8 h-8" />
           </div>
-          <h3 className="text-white text-lg font-semibold mb-2">Drag and drop your resume</h3>
-          <p className="text-slate-400 text-sm mb-1">Support PDF or any Image format (JPG, PNG)</p>
-          <p className="text-slate-500 text-xs">Maximum file size: 10 MB</p>
+          <h3 className={`text-lg font-semibold mb-2 ${isBloom ? 'text-slate-800' : 'text-white'}`}>Drag and drop your resume</h3>
+          <p className={`text-sm mb-1 ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>Support PDF or any Image format (JPG, PNG)</p>
+          <p className={`text-xs ${isBloom ? 'text-slate-400' : 'text-slate-500'}`}>Maximum file size: 10 MB</p>
         </div>
       </div>
 
@@ -267,10 +286,14 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
         <button
           id="btn-use-default"
           onClick={onSelectDefault}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 font-medium text-sm rounded-xl border border-slate-850 hover:border-slate-700 transition"
+          className={`flex items-center gap-2 px-5 py-2.5 font-medium text-sm rounded-xl border transition-all duration-300 ${
+            isBloom
+              ? 'bg-white hover:bg-rose-50/30 text-slate-700 border-slate-200 hover:border-rose-200 shadow-sm'
+              : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-850 hover:border-slate-700'
+          }`}
         >
-          <FileText className="w-4 h-4 text-emerald-400" />
-          <span>Load Amit's Predefined Tech Resume</span>
+          <FileText className="w-4 h-4 text-emerald-500" />
+          <span>Load Ashish's Predefined Tech Resume</span>
         </button>
       </div>
 
@@ -279,32 +302,42 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-8 bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg"
+          className={`mt-8 border rounded-xl p-6 shadow-lg transition-all duration-300 ${
+            isBloom
+              ? 'bg-white border-rose-100 shadow-md shadow-rose-100/10'
+              : 'bg-slate-900 border-slate-800'
+          }`}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-              <span className="text-white font-medium text-sm">{statusText}</span>
+              <Loader2 className={`w-5 h-5 animate-spin ${isBloom ? 'text-rose-500' : 'text-indigo-400'}`} />
+              <span className={`font-medium text-sm ${isBloom ? 'text-slate-800' : 'text-white'}`}>{statusText}</span>
             </div>
-            <span className="text-indigo-400 font-mono text-sm font-semibold">{progress}%</span>
+            <span className={`font-mono text-sm font-semibold ${isBloom ? 'text-rose-500' : 'text-indigo-400'}`}>{progress}%</span>
           </div>
           
           {/* Progress Bar Container */}
-          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-850">
+          <div className={`w-full h-2 rounded-full overflow-hidden border transition-all duration-300 ${
+            isBloom ? 'bg-rose-50 border-rose-100' : 'bg-slate-950 border-slate-850'
+          }`}>
             <div 
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-300"
+              className={`h-full transition-all duration-300 ${
+                isBloom ? 'bg-gradient-to-r from-rose-400 to-pink-500' : 'bg-gradient-to-r from-indigo-500 to-purple-500'
+              }`}
               style={{ width: `${progress}%` }}
             />
           </div>
 
           {/* OCR Activation State */}
           {ocrNeeded && (
-            <div className="mt-4 pt-4 border-t border-slate-850 flex items-center justify-between gap-4">
+            <div className={`mt-4 pt-4 border-t flex items-center justify-between gap-4 ${
+              isBloom ? 'border-rose-100' : 'border-slate-850'
+            }`}>
               <div className="flex items-start gap-2.5 max-w-md">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="text-left">
-                  <p className="text-amber-400 text-xs font-semibold">Selectable Text Missing</p>
-                  <p className="text-slate-400 text-xs">This file seems to be a scanned copy. Tesseract OCR will analyze and extract text line-by-line.</p>
+                  <p className={`text-xs font-semibold ${isBloom ? 'text-amber-700' : 'text-amber-400'}`}>Selectable Text Missing</p>
+                  <p className={`text-xs ${isBloom ? 'text-slate-500' : 'text-slate-400'}`}>This file seems to be a scanned copy. Tesseract OCR will analyze and extract text line-by-line.</p>
                 </div>
               </div>
               <button
@@ -324,12 +357,16 @@ export default function LandingPage({ onParsed, onSelectDefault }: LandingPagePr
         <motion.div 
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-6 p-4 bg-rose-950/30 border border-rose-900/50 rounded-xl flex items-start gap-3"
+          className={`mt-6 p-4 border rounded-xl flex items-start gap-3 ${
+            isBloom
+              ? 'bg-rose-50/50 border-rose-100 text-rose-800'
+              : 'bg-rose-950/30 border border-rose-900/50'
+          }`}
         >
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
           <div className="text-left">
-            <p className="text-rose-400 text-sm font-semibold">Processing Failed</p>
-            <p className="text-slate-400 text-xs mt-0.5">{error}</p>
+            <p className={`text-sm font-semibold ${isBloom ? 'text-rose-700' : 'text-rose-400'}`}>Processing Failed</p>
+            <p className={`text-xs mt-0.5 ${isBloom ? 'text-slate-600' : 'text-slate-400'}`}>{error}</p>
           </div>
         </motion.div>
       )}

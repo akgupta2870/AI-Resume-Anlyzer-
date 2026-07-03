@@ -28,10 +28,137 @@ import { ResumeData, Experience, Project, Education } from '../types.ts';
 interface ResumeFormProps {
   data: ResumeData;
   onChange: (newData: ResumeData) => void;
+  appTheme?: 'dark' | 'bloom';
 }
 
-export default function ResumeForm({ data, onChange }: ResumeFormProps) {
+export default function ResumeForm({ data, onChange, appTheme = 'dark' }: ResumeFormProps) {
   const [activeSection, setActiveSection] = useState<string>('personal');
+
+  // Rich Text Formatting Helper for textareas
+  const handleFormatText = (
+    textareaId: string, 
+    value: string, 
+    setValue: (val: string) => void,
+    tagStart: string,
+    tagEnd: string
+  ) => {
+    const el = document.getElementById(textareaId) as HTMLTextAreaElement | null;
+    if (!el) {
+      setValue(value + tagStart + tagEnd);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selectedText = value.substring(start, end);
+    const replacement = tagStart + selectedText + tagEnd;
+    const newValue = value.substring(0, start) + replacement + value.substring(end);
+    
+    setValue(newValue);
+    
+    // Restore focus and selection
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+    }, 50);
+  };
+
+  const renderFormattingToolbar = (textareaId: string, value: string, setValue: (val: string) => void) => {
+    return (
+      <div className={`flex flex-wrap items-center gap-1.5 p-1 border rounded-md mb-1.5 no-print ${
+        appTheme === 'bloom' ? 'bg-rose-50/50 border-rose-100/60' : 'bg-slate-900 border-slate-850'
+      }`}>
+        <button
+          type="button"
+          onClick={() => handleFormatText(textareaId, value, setValue, '<b>', '</b>')}
+          className="px-2.5 py-1 text-xs font-bold rounded hover:bg-indigo-500/10 hover:text-indigo-400 transition"
+          title="Make Bold (<b>)"
+        >
+          B
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormatText(textareaId, value, setValue, '<i>', '</i>')}
+          className="px-2.5 py-1 text-xs font-serif italic rounded hover:bg-indigo-500/10 hover:text-indigo-400 transition"
+          title="Make Italic (<i>)"
+        >
+          I
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormatText(textareaId, value, setValue, '<u>', '</u>')}
+          className="px-2.5 py-1 text-xs underline rounded hover:bg-indigo-500/10 hover:text-indigo-400 transition"
+          title="Underline (<u>)"
+        >
+          U
+        </button>
+        
+        <div className={`w-[1px] h-3 mx-1 ${appTheme === 'bloom' ? 'bg-rose-200' : 'bg-slate-800'}`} />
+
+        {/* Custom Preset Colors dropdown */}
+        <select
+          onChange={(e) => {
+            if (e.target.value) {
+              handleFormatText(textareaId, value, setValue, `<span style="color: ${e.target.value}">`, '</span>');
+              e.target.value = ''; // reset dropdown
+            }
+          }}
+          className={`bg-transparent text-[11px] font-semibold focus:outline-none cursor-pointer ${
+            appTheme === 'bloom' ? 'text-rose-500' : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Highlight Color"
+        >
+          <option value="">Color Highlight</option>
+          <option value="#ef4444" className="text-[#ef4444]">🔴 Red Accent</option>
+          <option value="#3b82f6" className="text-[#3b82f6]">🔵 Blue Action</option>
+          <option value="#10b981" className="text-[#10b981]">🟢 Green Metric</option>
+          <option value="#f59e0b" className="text-[#f59e0b]">🟡 Amber Award</option>
+          <option value="#8b5cf6" className="text-[#8b5cf6]">🟣 Purple Goal</option>
+        </select>
+
+        <div className={`w-[1px] h-3 mx-1 ${appTheme === 'bloom' ? 'bg-rose-200' : 'bg-slate-800'}`} />
+
+        {/* Font Size dropdown */}
+        <select
+          onChange={(e) => {
+            if (e.target.value) {
+              handleFormatText(textareaId, value, setValue, `<span style="font-size: ${e.target.value}">`, '</span>');
+              e.target.value = ''; // reset
+            }
+          }}
+          className={`bg-transparent text-[11px] font-semibold focus:outline-none cursor-pointer ${
+            appTheme === 'bloom' ? 'text-rose-500' : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Font Size Modifier"
+        >
+          <option value="">Font Size</option>
+          <option value="1.25em">Large</option>
+          <option value="1.45em">Extra Large</option>
+          <option value="0.85em">Small (Sub)</option>
+        </select>
+
+        <div className={`w-[1px] h-3 mx-1 ${appTheme === 'bloom' ? 'bg-rose-200' : 'bg-slate-800'}`} />
+
+        {/* Font Style/Family dropdown */}
+        <select
+          onChange={(e) => {
+            if (e.target.value) {
+              handleFormatText(textareaId, value, setValue, `<span style="font-family: ${e.target.value}">`, '</span>');
+              e.target.value = ''; // reset
+            }
+          }}
+          className={`bg-transparent text-[11px] font-semibold focus:outline-none cursor-pointer ${
+            appTheme === 'bloom' ? 'text-rose-500' : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Font Style"
+        >
+          <option value="">Font Family</option>
+          <option value="sans-serif">Modern Sans</option>
+          <option value="serif">Classic Serif</option>
+          <option value="monospace">Tech Mono</option>
+        </select>
+      </div>
+    );
+  };
   
   // Track open/collapsed indices for array fields
   const [expandedExp, setExpandedExp] = useState<{ [key: number]: boolean }>({ 0: true });
@@ -585,7 +712,9 @@ export default function ResumeForm({ data, onChange }: ResumeFormProps) {
               )}
             </button>
           </div>
+          {renderFormattingToolbar('summary-textarea', data.professionalSummary, updateSummary)}
           <textarea
+            id="summary-textarea"
             rows={6}
             value={data.professionalSummary}
             onChange={(e) => updateSummary(e.target.value)}
@@ -821,7 +950,13 @@ export default function ResumeForm({ data, onChange }: ResumeFormProps) {
                           <div key={rIdx} className="flex items-start gap-2">
                             <span className="text-slate-500 text-xs mt-2 font-mono">#{rIdx + 1}</span>
                             <div className="flex-1 min-w-0 space-y-1">
+                              {renderFormattingToolbar(`resp-textarea-${bulletKey}`, resp, (newVal) => {
+                                const nextResp = [...exp.responsibilities];
+                                nextResp[rIdx] = newVal;
+                                handleUpdateExperience(idx, 'responsibilities', nextResp);
+                              })}
                               <textarea
+                                id={`resp-textarea-${bulletKey}`}
                                 value={resp}
                                 onChange={(e) => {
                                   const nextResp = [...exp.responsibilities];
@@ -948,7 +1083,9 @@ export default function ResumeForm({ data, onChange }: ResumeFormProps) {
 
                     <div className="col-span-1 sm:col-span-2">
                       <label className="block text-slate-400 text-xs font-semibold mb-1 uppercase">Description</label>
+                      {renderFormattingToolbar(`proj-desc-${idx}`, proj.description, (newVal) => handleUpdateProject(idx, 'description', newVal))}
                       <textarea
+                        id={`proj-desc-${idx}`}
                         value={proj.description}
                         onChange={(e) => handleUpdateProject(idx, 'description', e.target.value)}
                         rows={3}

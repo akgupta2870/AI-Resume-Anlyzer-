@@ -17,9 +17,10 @@ interface DashboardStatsProps {
   stats: StatsType | null;
   loading: boolean;
   onRefresh: () => void;
+  appTheme?: 'dark' | 'bloom';
 }
 
-export default function DashboardStats({ stats, loading, onRefresh }: DashboardStatsProps) {
+export default function DashboardStats({ stats, loading, onRefresh, appTheme = 'dark' }: DashboardStatsProps) {
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto py-10 px-4 flex flex-col items-center justify-center min-h-[400px]">
