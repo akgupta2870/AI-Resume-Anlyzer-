@@ -1,0 +1,8 @@
+{
+  "name": "AI Resume PDF Analyzer & Editor",
+  "description": "Upload any resume PDF, intelligently parse the sections into editable forms, optimize for ATS compliance, and export professional layouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
